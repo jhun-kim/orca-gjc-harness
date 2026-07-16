@@ -31,6 +31,7 @@
     "requestedThinking": "xhigh",
     "resolvedThinking": "xhigh",
     "tools": ["read", "search", "find"],
+    "goalEnabled": false,
     "environmentReceipt": "/private/orchid-review-20260717/receipts/environment-policy.json",
     "fallbacks": []
   },
@@ -44,14 +45,110 @@
     "reason": "The implementation stage consumes a verified reconnaissance handoff.",
     "conditionalIntegration": false
   },
-  "tasks": [],
-  "dispatches": [],
-  "worktrees": [],
-  "terminals": [],
-  "promptDeliveries": [],
+  "tasks": [
+    {
+      "taskId": "task_implementation_02",
+      "dispatchId": "dispatch_implementation_02",
+      "phase": "implementation",
+      "dependsOn": [],
+      "required": true,
+      "worktreeId": "repo_example::/workspace/orchid-review-implementation",
+      "recordedBase": "1111111111111111111111111111111111111111",
+      "ownedPaths": ["src/owned-slice/**"],
+      "model": "openai-codex/gpt-5.6-sol",
+      "thinking": "xhigh",
+      "promptPath": "/private/orchid-review-20260717/tasks/implementation.md",
+      "promptSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "acceptance": ["Owned behavior passes its approved validation."],
+      "validationCommands": ["git diff --check 1111111111111111111111111111111111111111...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "handoffOutputs": ["/private/orchid-review-20260717/handoffs/implementation.json"],
+      "status": "completed",
+      "workerDone": {
+        "status": "success",
+        "receipt": {
+          "path": "/private/orchid-review-20260717/receipts/worker-completion.json",
+          "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+          "bytes": 2048
+        }
+      }
+    }
+  ],
+  "dispatches": [
+    {
+      "taskId": "task_implementation_02",
+      "dispatchId": "dispatch_implementation_02",
+      "terminalHandle": "term_gjc_worker",
+      "createdAt": "2026-07-17T00:05:00Z",
+      "status": "completed"
+    }
+  ],
+  "worktrees": [
+    {
+      "id": "repo_example::/workspace/orchid-review-implementation",
+      "path": "/workspace/orchid-review-implementation",
+      "branch": "orca/orchid-review-implementation",
+      "recordedBase": "1111111111111111111111111111111111111111",
+      "setupMode": "skip"
+    }
+  ],
+  "terminals": [
+    {
+      "handle": "term_gjc_worker",
+      "worktreeId": "repo_example::/workspace/orchid-review-implementation",
+      "title": "orchid-review-implementation",
+      "command": [
+        "gjc",
+        "--model",
+        "openai-codex/gpt-5.6-sol",
+        "--thinking",
+        "xhigh",
+        "--no-session",
+        "--no-lsp",
+        "--no-rules",
+        "--no-pty",
+        "--tools",
+        "read,search,find"
+      ],
+      "identity": "pane_orchid_worker"
+    }
+  ],
+  "promptDeliveries": [
+    {
+      "taskId": "task_implementation_02",
+      "dispatchId": "dispatch_implementation_02",
+      "terminalHandle": "term_gjc_worker",
+      "path": "/private/orchid-review-20260717/tasks/implementation.md",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "bytes": 2048,
+      "dispatchShowArtifact": {
+        "path": "/private/orchid-review-20260717/receipts/dispatch-show.json",
+        "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "bytes": 512
+      },
+      "preSubmitReadArtifact": {
+        "path": "/private/orchid-review-20260717/receipts/terminal-read-before.json",
+        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "bytes": 512
+      },
+      "pastedComposerVisible": true,
+      "enterSubmissionCount": 1,
+      "enterSubmissionArtifact": {
+        "path": "/private/orchid-review-20260717/receipts/terminal-enter.json",
+        "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "bytes": 256
+      },
+      "postSubmitReadArtifact": {
+        "path": "/private/orchid-review-20260717/receipts/terminal-read-after.json",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bytes": 512
+      },
+      "acknowledgmentArtifact": null,
+      "accepted": true
+    }
+  ],
   "handoffs": [],
   "validations": [],
   "evidence": [],
   "cleanupReceipts": [],
-  "status": "planning"
+  "status": "running"
 }

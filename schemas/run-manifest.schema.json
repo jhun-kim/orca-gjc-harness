@@ -9,8 +9,10 @@
     "createdAt",
     "coordinatorHandle",
     "parentInvariantBefore",
+    "parentInvariantAfter",
     "trust",
     "runtimePolicy",
+    "source",
     "mode",
     "tasks",
     "dispatches",
@@ -36,7 +38,7 @@
     "source": { "$ref": "#/$defs/sourceFact" },
     "mode": {
       "type": "object",
-      "required": ["selected", "reason"],
+      "required": ["selected", "reason", "conditionalIntegration"],
       "additionalProperties": false,
       "properties": {
         "selected": { "enum": ["single", "race", "parallel-build", "pipeline"] },
@@ -66,7 +68,10 @@
       "additionalProperties": false,
       "properties": {
         "path": { "$ref": "#/$defs/path" },
-        "branch": { "type": "string", "minLength": 1 },
+        "branch": {
+          "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
+          "description": "Null means the worktree is detached."
+        },
         "head": { "$ref": "#/$defs/fullOid" },
         "status": { "type": "array", "items": { "type": "string" } }
       }
@@ -83,7 +88,18 @@
     },
     "runtimePolicy": {
       "type": "object",
-      "required": ["setupMode", "gjcBinary", "requestedModel", "requestedThinking", "tools", "environmentReceipt"],
+      "required": [
+        "setupMode",
+        "gjcBinary",
+        "requestedModel",
+        "resolvedModel",
+        "requestedThinking",
+        "resolvedThinking",
+        "tools",
+        "goalEnabled",
+        "environmentReceipt",
+        "fallbacks"
+      ],
       "additionalProperties": false,
       "properties": {
         "setupMode": { "enum": ["skip", "inherit"] },
@@ -104,6 +120,10 @@
         "requestedThinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
         "resolvedThinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
         "tools": { "type": "array", "minItems": 1, "items": { "enum": ["read", "search", "find", "edit", "write", "bash"] }, "uniqueItems": true },
+        "goalEnabled": {
+          "const": false,
+          "description": "The goal tool can remain active despite --tools and must be disabled in the isolated config."
+        },
         "environmentReceipt": { "$ref": "#/$defs/path" },
         "fallbacks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" }, "uniqueItems": true }
       }
@@ -120,7 +140,25 @@
     },
     "task": {
       "type": "object",
-      "required": ["taskId", "dispatchId", "phase", "dependsOn", "required", "worktreeId", "recordedBase", "ownedPaths", "model", "thinking", "promptPath", "promptSha256", "acceptance", "validationCommands", "handoffOutputs", "status"],
+      "required": [
+        "taskId",
+        "dispatchId",
+        "phase",
+        "dependsOn",
+        "required",
+        "worktreeId",
+        "recordedBase",
+        "ownedPaths",
+        "model",
+        "thinking",
+        "promptPath",
+        "promptSha256",
+        "acceptance",
+        "validationCommands",
+        "handoffOutputs",
+        "status",
+        "workerDone"
+      ],
       "additionalProperties": false,
       "properties": {
         "taskId": { "type": "string", "minLength": 1 },
@@ -138,8 +176,67 @@
         "acceptance": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
         "validationCommands": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "handoffOutputs": { "type": "array", "items": { "$ref": "#/$defs/path" } },
-        "status": { "enum": ["pending", "ready", "dispatched", "completed", "failed", "blocked", "cancelled", "cleanup-blocked"] }
-      }
+        "status": {
+          "enum": ["pending", "ready", "dispatched", "completed", "failed", "blocked", "cancelled", "cleanup-blocked"],
+          "description": "Orca task lifecycle state, distinct from worker_done status."
+        },
+        "workerDone": { "$ref": "#/$defs/workerDoneResult" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "workerDone": {
+                "type": "object",
+                "properties": { "status": { "const": "success" } },
+                "required": ["status"]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "failed" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "workerDone": {
+                "type": "object",
+                "properties": { "status": { "const": "failure" } },
+                "required": ["status"]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "blocked" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "workerDone": {
+                "type": "object",
+                "properties": { "status": { "const": "blocked" } },
+                "required": ["status"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "workerDoneResult": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["status", "receipt"],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": ["success", "failure", "blocked"],
+              "description": "Exact completion-receipt status vocabulary."
+            },
+            "receipt": { "$ref": "#/$defs/evidence" }
+          }
+        }
+      ]
     },
     "dispatch": {
       "type": "object",
@@ -150,7 +247,7 @@
         "dispatchId": { "type": "string", "minLength": 1 },
         "terminalHandle": { "type": "string", "minLength": 1 },
         "createdAt": { "type": "string", "format": "date-time" },
-        "status": { "enum": ["active", "completed", "failed", "blocked", "cancelled"] }
+        "status": { "enum": ["dispatched", "active", "completed", "failed", "blocked", "cancelled"] }
       }
     },
     "worktree": {
@@ -179,17 +276,67 @@
     },
     "promptDelivery": {
       "type": "object",
-      "required": ["taskId", "dispatchId", "path", "sha256", "bytes", "dispatchProof", "acknowledgment"],
+      "required": [
+        "taskId",
+        "dispatchId",
+        "terminalHandle",
+        "path",
+        "sha256",
+        "bytes",
+        "dispatchShowArtifact",
+        "preSubmitReadArtifact",
+        "pastedComposerVisible",
+        "enterSubmissionCount",
+        "enterSubmissionArtifact",
+        "postSubmitReadArtifact",
+        "accepted"
+      ],
       "additionalProperties": false,
       "properties": {
         "taskId": { "type": "string", "minLength": 1 },
         "dispatchId": { "type": "string", "minLength": 1 },
+        "terminalHandle": { "type": "string", "minLength": 1 },
         "path": { "$ref": "#/$defs/path" },
         "sha256": { "$ref": "#/$defs/sha256" },
         "bytes": { "type": "integer", "minimum": 1 },
-        "dispatchProof": { "$ref": "#/$defs/path" },
-        "acknowledgment": { "$ref": "#/$defs/path" }
-      }
+        "dispatchShowArtifact": { "$ref": "#/$defs/evidence" },
+        "preSubmitReadArtifact": { "$ref": "#/$defs/evidence" },
+        "pastedComposerVisible": { "type": "boolean" },
+        "enterSubmissionCount": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "enterSubmissionArtifact": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] },
+        "postSubmitReadArtifact": { "$ref": "#/$defs/evidence" },
+        "acknowledgmentArtifact": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] },
+        "accepted": {
+          "const": true,
+          "description": "Requires dispatch-show and terminal-read proof; send/inject acknowledgment alone is insufficient."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "pastedComposerVisible": { "const": true } },
+            "required": ["pastedComposerVisible"]
+          },
+          "then": {
+            "properties": {
+              "enterSubmissionCount": { "const": 1 },
+              "enterSubmissionArtifact": { "$ref": "#/$defs/evidence" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "pastedComposerVisible": { "const": false } },
+            "required": ["pastedComposerVisible"]
+          },
+          "then": {
+            "properties": {
+              "enterSubmissionCount": { "const": 0 },
+              "enterSubmissionArtifact": { "type": "null" }
+            }
+          }
+        }
+      ]
     },
     "handoff": {
       "type": "object",

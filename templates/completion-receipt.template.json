@@ -24,6 +24,8 @@
     {
       "argv": ["git", "diff", "--check", "1111111111111111111111111111111111111111...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
       "cwd": "/workspace/orchid-review-implementation",
+      "startedAt": "2026-07-17T00:10:00Z",
+      "endedAt": "2026-07-17T00:10:01Z",
       "exitCode": 0,
       "log": {
         "path": "/private/orchid-review-20260717/logs-redacted/diff-check.log",
@@ -45,7 +47,7 @@
   ],
   "artifactHashes": [
     {
-      "path": "/private/orchid-review-20260717/receipts/worker-completion.json",
+      "path": "/private/orchid-review-20260717/receipts/environment-policy.json",
       "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "bytes": 2048
     }

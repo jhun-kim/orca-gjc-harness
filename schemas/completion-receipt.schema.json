@@ -27,7 +27,10 @@
     "runId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
     "taskId": { "type": "string", "minLength": 1 },
     "dispatchId": { "type": "string", "minLength": 1 },
-    "status": { "enum": ["success", "failure", "blocked"] },
+    "status": {
+      "enum": ["success", "failure", "blocked"],
+      "description": "Exact worker_done result vocabulary; Orca task lifecycle states are separate."
+    },
     "branch": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
     "head": { "anyOf": [{ "$ref": "#/$defs/fullOid" }, { "type": "null" }] },
     "recordedBase": { "$ref": "#/$defs/fullOid" },
@@ -40,6 +43,20 @@
     "risks": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "cleanupReceipt": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "success" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "branch": { "type": "string", "minLength": 1 },
+          "head": { "$ref": "#/$defs/fullOid" }
+        }
+      }
+    }
+  ],
   "$defs": {
     "fullOid": { "type": "string", "pattern": "^[0-9a-f]{40,128}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
@@ -55,11 +72,13 @@
     },
     "command": {
       "type": "object",
-      "required": ["argv", "cwd", "exitCode", "log"],
+      "required": ["argv", "cwd", "startedAt", "endedAt", "exitCode", "log"],
       "additionalProperties": false,
       "properties": {
         "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
         "cwd": { "type": "string", "minLength": 1 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
         "exitCode": { "type": "integer", "minimum": 0 },
         "log": { "$ref": "#/$defs/evidence" }
       }

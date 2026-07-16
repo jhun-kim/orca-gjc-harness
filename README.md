@@ -16,7 +16,7 @@ It is not a GJC team launcher. The worker may edit only the exact Orca-created c
 
 ## Installation
 
-Copy the `orca-gjc-harness/` directory into the host's installable skill location while preserving its internal layout. The primary entrypoint is [`SKILL.md`](SKILL.md). No package manager, executable installer, build hook, test hook, network call, or setup script is included.
+In the published repository, [`SKILL.md`](SKILL.md) is at the repository root. Clone or copy that root into the host's installable skill location under a directory named `orca-gjc-harness`; do not add another nested payload directory. No package manifest, executable installer, build hook, test hook, or setup script is included. Approved GJC workers still contact their selected model provider at runtime.
 
 The install surface is intentionally small:
 
@@ -40,7 +40,7 @@ orca-gjc-harness/
 2. **Freeze baseline.** Capture the parent worktree path, branch, full HEAD, and porcelain status. Parent mutation is outside this skill.
 3. **Create one manifest.** Serialize the run against [`schemas/run-manifest.schema.json`](schemas/run-manifest.schema.json), with task, worktree, terminal, prompt, handoff, validation, and cleanup evidence owned by that manifest.
 4. **Choose a primary mode.** Use `single` for one narrow change, `race` for competing candidates, `parallel-build` for disjoint ownership, and `pipeline` for hash-verified staged work. Integration is conditional only.
-5. **Launch through Orca.** Orca creates the child worktree and terminal and injects a literal, hashed task spec. GJC is not permitted to create worktrees or coordination state.
+5. **Launch through Orca.** Orca creates the child worktree and terminal and injects a literal, hashed task spec. Acceptance requires `dispatch-show`, a terminal read before submission, exactly one Enter when a pasted composer is visible, and a terminal read afterward proving the prompt left the composer and became active. A send/inject acknowledgment alone is insufficient. GJC is not permitted to create worktrees or coordination state.
 6. **Accept evidence, not prose.** Heartbeats, decision gates, one `worker_done`, full object IDs, hashes, exit codes, and non-empty artifacts form the handoff contract.
 7. **Validate and preserve.** Run approved validation in the selected child, preserve its branch/commit, clean only verified run-owned children, then compare parent invariants byte-for-byte.
 
@@ -54,18 +54,19 @@ Every launch uses an explicit model and thinking level plus these restrictive co
 gjc --model openai-codex/gpt-5.6-sol --thinking xhigh --no-session --no-lsp --no-rules --no-pty --tools read,search,find
 ```
 
-The initial read-only allowlist is `read,search,find`. An owned implementation task can add `edit,write`; `bash` requires a command-specific trust gate. `--no-lsp` remains enabled until project configuration and resolved LSP binaries are trusted.
+The initial read-only allowlist is `read,search,find`. Because the `goal` tool can remain enabled despite that allowlist, the isolated run config also sets `goal.enabled=false`. An owned implementation task can add `edit,write`; `bash` requires a command-specific trust gate. `--no-lsp` remains enabled until project configuration and resolved LSP binaries are trusted.
 
 These controls have important limits:
 
-- `--no-extensions` is ineffective as a containment measure because the analyzed GJC parser does not parse it. State isolation and absent project registries are the control.
+- `--no-extensions` and `--no-skills` are ineffective as containment measures because the analyzed GJC parser does not parse them; arbitrary skill discovery is already disabled in the analyzed source. State isolation and absent project registries are the controls.
+- `--tools` does not by itself disable the `goal` tool. Strict read-only workers require `goal.enabled=false` in the isolated run config.
 - `--no-pty` sets `PI_NO_PTY=1`, but does not alone stop a bash shell snapshot from reading startup state. The run environment also neutralizes login/profile inputs.
 - GJC project plugins, LSP configuration/binaries, MCP configuration, lifecycle scripts, Git hooks, and shell startup can execute or influence code. They require separate trust inventory and approval.
 - Do not pass `--api-key`, use persistent model presets/defaults, dump environment variables, or run GJC global/nested management commands.
 
 ## Sanitized run environment
 
-Each worker receives a fresh run-scoped `GJC_CODING_AGENT_DIR` and `GJC_CONFIG_DIR` outside the target repository and evidence tree. It runs with a minimal allowlist, no captured environment dump, `GJC_NO_PTY=1`, `GJC_BASH_NO_LOGIN=1`, `SHELL=/bin/sh`, `BASH_ENV=/dev/null`, `ENV=/dev/null`, `GIT_TERMINAL_PROMPT=0`, and `GIT_ASKPASS=/usr/bin/false`. The coordinator removes shell-prefix/legacy aliases and unrelated cloud, source-control, proxy, and provider credentials.
+Each worker receives fresh run-scoped `GJC_CODING_AGENT_DIR` and `GJC_CONFIG_DIR` paths outside the target repository and evidence tree. The directories contain only the reviewed minimal config needed to set `goal.enabled=false`. GJC runs with a minimal allowlist, no captured environment dump, `GJC_NO_PTY=1`, `GJC_BASH_NO_LOGIN=1`, `SHELL=/bin/sh`, `BASH_ENV=/dev/null`, `ENV=/dev/null`, `GIT_TERMINAL_PROMPT=0`, and `GIT_ASKPASS=/usr/bin/false`. The coordinator removes shell-prefix/legacy aliases and unrelated cloud, source-control, proxy, and provider credentials.
 
 A selected provider may be authenticated only through a brokered handle that is neither written to disk nor included in arguments, prompts, receipts, diffs, terminal titles, or logs. If the host cannot preserve that boundary, do not launch GJC.
 
@@ -75,7 +76,9 @@ A selected provider may be authenticated only through a brokered handle that is 
 - [`templates/worker-task.md`](templates/worker-task.md) specifies the immutable facts each worker receives before hashing and Orca injection.
 - [`templates/completion-receipt.template.json`](templates/completion-receipt.template.json) is the required worker evidence shape, validated by [`schemas/completion-receipt.schema.json`](schemas/completion-receipt.schema.json).
 
-A `worker_done` event is valid only once, sent to the concrete coordinator with live Orca `taskId` and `dispatchId`, and backed by non-empty evidence paths. A text-only completion or stale dispatch ID is not a completion.
+A prompt-delivery record is valid only when it binds the literal prompt hash to `dispatch-show`, a pre-submit terminal read, zero Enter submissions when no pasted composer is visible or exactly one when it is, and a post-submit terminal read proving acceptance. A send/inject acknowledgment or heartbeat never suffices by itself.
+
+A `worker_done` event is valid only once, sent to the concrete coordinator with live Orca `taskId` and `dispatchId`, and backed by non-empty evidence paths. Its exact `status` vocabulary is `success`, `failure`, or `blocked`; Orca task lifecycle states such as `completed` and `failed` remain separate. A text-only completion or stale dispatch ID is not a completion.
 
 ## Safety boundaries
 
@@ -91,6 +94,6 @@ When a boundary fails, preserve the state and evidence, mark the run blocked or 
 
 ## Source facts and licensing
 
-This skill independently states GJC CLI behavior observed in an immutable static source-analysis contract for Gajae Code commit `7dc297145f333a00b7e913ce7c8cd5dedeb3fd34`. It does not include GJC source code or copied implementation text. The contract establishes that `--model`, `--thinking`, `--no-session`, `--no-lsp`, `--no-rules`, `--no-pty`, and `--tools` are active parser controls; it also records the `--no-extensions` limitation. Static analysis is not a security guarantee, so local binary/model verification remains mandatory.
+This skill independently states GJC CLI behavior observed in an immutable static source-analysis contract for Gajae Code commit `7dc297145f333a00b7e913ce7c8cd5dedeb3fd34`. It does not include GJC source code or copied implementation text. The contract establishes that `--model`, `--thinking`, `--no-session`, `--no-lsp`, `--no-rules`, `--no-pty`, and `--tools` are active parser controls; it also records that `--no-extensions` and `--no-skills` are not parsed and that `--tools` can leave the `goal` tool enabled. Static analysis is not a security guarantee, so local binary/model verification remains mandatory.
 
 This repository payload is independently licensed under the MIT License in [`LICENSE`](LICENSE).
