@@ -34,6 +34,19 @@ orca-gjc-harness/
     └── worker-task.md
 ```
 
+## Version management
+
+The repository follows Semantic Versioning. The initial published version is
+[`1.0.0`](VERSION).
+
+- Each non-automated direct push to `main` increments `PATCH` by exactly one.
+- Feature-branch pushes do not allocate or change a release version.
+- Automated version commits contain `[skip version-bump]` to prevent recursive
+  bumps.
+- Each automated version commit receives an annotated `vX.Y.Z` tag.
+- The workflow does not create GitHub Releases.
+
+
 ## Operating model
 
 1. **Gate activation.** Confirm Orca, a trustworthy GJC binary, exact model availability, target trust classification, and a private run-evidence root. Otherwise leave this skill and use a separate direct workflow.

@@ -1,0 +1,65 @@
+name: Version bump
+
+"on":
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump-main
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      !contains(github.event.head_commit.message, '[skip version-bump]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Bump patch version and tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(<VERSION)"
+          if ! cmp -s <(printf '%s\n' "$version") VERSION; then
+            printf 'VERSION must contain exactly one newline-terminated version\n' >&2
+            exit 1
+          fi
+          if ! [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            printf 'VERSION must be strict numeric MAJOR.MINOR.PATCH; got: %s\n' "$version" >&2
+            exit 1
+          fi
+
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          next_version="${major}.${minor}.$((10#$patch + 1))"
+          tag="v${next_version}"
+
+          if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
+            printf 'refusing to create existing tag: %s\n' "$tag" >&2
+            exit 1
+          fi
+
+          version_file="$(mktemp VERSION.XXXXXX)"
+          trap 'rm -f "$version_file"' EXIT
+          printf '%s\n' "$next_version" > "$version_file"
+          mv "$version_file" VERSION
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add VERSION
+          git commit -m "chore(version): bump to ${tag} [skip version-bump]"
+          git tag -a "$tag" -m "Release ${tag}"
+          git push --atomic origin HEAD:main "refs/tags/${tag}"
