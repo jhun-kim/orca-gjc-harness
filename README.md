@@ -39,8 +39,11 @@ orca-gjc-harness/
 The repository follows Semantic Versioning. The initial published version is
 [`1.0.0`](VERSION).
 
-- Each non-automated direct push to `main` increments `PATCH` by exactly one.
-- Feature-branch pushes do not allocate or change a release version.
+- Only non-automated pushes to `main` allocate release versions; feature-branch
+  pushes do not allocate or change one.
+- Each completed allocation increments `PATCH` by exactly one (`+0.0.1`).
+- GitHub Actions serializes allocations with `queue: max` (up to 100 pending
+  runs) and does not cancel an allocation already in progress.
 - Automated version commits contain `[skip version-bump]` to prevent recursive
   bumps.
 - Each automated version commit receives an annotated `vX.Y.Z` tag.
