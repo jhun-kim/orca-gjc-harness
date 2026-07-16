@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "runId": "orchid-review-20260717",
+  "createdAt": "2026-07-17T00:00:00Z",
+  "coordinatorHandle": "term_orca_coordinator",
+  "parentInvariantBefore": {
+    "path": "/workspace/example-repository",
+    "branch": "main",
+    "head": "1111111111111111111111111111111111111111",
+    "status": []
+  },
+  "parentInvariantAfter": null,
+  "trust": {
+    "classification": "unknown",
+    "rationale": "Repository command surfaces have been inventoried but no execution approval exists.",
+    "evidence": [
+      "/private/orchid-review-20260717/logs-redacted/trust-inventory.json"
+    ]
+  },
+  "runtimePolicy": {
+    "setupMode": "skip",
+    "gjcBinary": {
+      "path": "/opt/gjc/bin/gjc",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "versionArtifact": "/private/orchid-review-20260717/logs-redacted/gjc-version.txt",
+      "modelCatalogArtifact": "/private/orchid-review-20260717/logs-redacted/gjc-models.json",
+      "provenance": "Controller-managed installation verified outside the target repository."
+    },
+    "requestedModel": "openai-codex/gpt-5.6-sol",
+    "resolvedModel": "openai-codex/gpt-5.6-sol",
+    "requestedThinking": "xhigh",
+    "resolvedThinking": "xhigh",
+    "tools": ["read", "search", "find"],
+    "environmentReceipt": "/private/orchid-review-20260717/receipts/environment-policy.json",
+    "fallbacks": []
+  },
+  "source": {
+    "contractPath": "/private/orchid-review-20260717/source/gjc-source-contract.json",
+    "contractSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "sourceHead": "4444444444444444444444444444444444444444"
+  },
+  "mode": {
+    "selected": "pipeline",
+    "reason": "The implementation stage consumes a verified reconnaissance handoff.",
+    "conditionalIntegration": false
+  },
+  "tasks": [],
+  "dispatches": [],
+  "worktrees": [],
+  "terminals": [],
+  "promptDeliveries": [],
+  "handoffs": [],
+  "validations": [],
+  "evidence": [],
+  "cleanupReceipts": [],
+  "status": "planning"
+}

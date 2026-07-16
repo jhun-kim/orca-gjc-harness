@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "runId": "orchid-review-20260717",
+  "taskId": "task_implementation_02",
+  "dispatchId": "dispatch_implementation_02",
+  "status": "success",
+  "branch": "orca/orchid-review-implementation",
+  "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "recordedBase": "1111111111111111111111111111111111111111",
+  "changedFiles": [
+    "src/owned-slice/example.ts"
+  ],
+  "diffStatArtifact": {
+    "path": "/private/orchid-review-20260717/receipts/implementation-diff-stat.txt",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "bytes": 48
+  },
+  "diffCheckArtifact": {
+    "path": "/private/orchid-review-20260717/receipts/implementation-diff-check.txt",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "bytes": 1
+  },
+  "commands": [
+    {
+      "argv": ["git", "diff", "--check", "1111111111111111111111111111111111111111...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "cwd": "/workspace/orchid-review-implementation",
+      "exitCode": 0,
+      "log": {
+        "path": "/private/orchid-review-20260717/logs-redacted/diff-check.log",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "bytes": 1
+      }
+    }
+  ],
+  "manualQa": [
+    {
+      "scenario": "Inspect the owned behavior in the approved local runtime.",
+      "observable": "The selected acceptance condition is visible without an error state.",
+      "artifact": {
+        "path": "/private/orchid-review-20260717/validation/owned-behavior.txt",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "bytes": 64
+      }
+    }
+  ],
+  "artifactHashes": [
+    {
+      "path": "/private/orchid-review-20260717/receipts/worker-completion.json",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "bytes": 2048
+    }
+  ],
+  "risks": [
+    "Independent validation remains required before this worker result is selected."
+  ],
+  "cleanupReceipt": null
+}

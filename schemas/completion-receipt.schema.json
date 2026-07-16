@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jhun-kim.github.io/orca-gjc-harness/schemas/completion-receipt.schema.json",
+  "title": "Orca GJC Harness Worker Completion Receipt",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "taskId",
+    "dispatchId",
+    "status",
+    "branch",
+    "head",
+    "recordedBase",
+    "changedFiles",
+    "diffStatArtifact",
+    "diffCheckArtifact",
+    "commands",
+    "manualQa",
+    "artifactHashes",
+    "risks",
+    "cleanupReceipt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "runId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "taskId": { "type": "string", "minLength": 1 },
+    "dispatchId": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["success", "failure", "blocked"] },
+    "branch": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+    "head": { "anyOf": [{ "$ref": "#/$defs/fullOid" }, { "type": "null" }] },
+    "recordedBase": { "$ref": "#/$defs/fullOid" },
+    "changedFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "diffStatArtifact": { "$ref": "#/$defs/evidence" },
+    "diffCheckArtifact": { "$ref": "#/$defs/evidence" },
+    "commands": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/command" } },
+    "manualQa": { "type": "array", "items": { "$ref": "#/$defs/manualQa" } },
+    "artifactHashes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
+    "risks": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "cleanupReceipt": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "fullOid": { "type": "string", "pattern": "^[0-9a-f]{40,128}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "evidence": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["argv", "cwd", "exitCode", "log"],
+      "additionalProperties": false,
+      "properties": {
+        "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "cwd": { "type": "string", "minLength": 1 },
+        "exitCode": { "type": "integer", "minimum": 0 },
+        "log": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "manualQa": {
+      "type": "object",
+      "required": ["scenario", "observable", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "scenario": { "type": "string", "minLength": 1 },
+        "observable": { "type": "string", "minLength": 1 },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    }
+  }
+}

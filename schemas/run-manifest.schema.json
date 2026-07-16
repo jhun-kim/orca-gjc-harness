@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jhun-kim.github.io/orca-gjc-harness/schemas/run-manifest.schema.json",
+  "title": "Orca GJC Harness Run Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "createdAt",
+    "coordinatorHandle",
+    "parentInvariantBefore",
+    "trust",
+    "runtimePolicy",
+    "mode",
+    "tasks",
+    "dispatches",
+    "worktrees",
+    "terminals",
+    "promptDeliveries",
+    "handoffs",
+    "validations",
+    "evidence",
+    "cleanupReceipts",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "runId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "coordinatorHandle": { "type": "string", "minLength": 1 },
+    "parentInvariantBefore": { "$ref": "#/$defs/parentInvariant" },
+    "parentInvariantAfter": { "anyOf": [{ "$ref": "#/$defs/parentInvariant" }, { "type": "null" }] },
+    "trust": { "$ref": "#/$defs/trustDecision" },
+    "runtimePolicy": { "$ref": "#/$defs/runtimePolicy" },
+    "source": { "$ref": "#/$defs/sourceFact" },
+    "mode": {
+      "type": "object",
+      "required": ["selected", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "selected": { "enum": ["single", "race", "parallel-build", "pipeline"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "conditionalIntegration": { "type": "boolean" }
+      }
+    },
+    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } },
+    "dispatches": { "type": "array", "items": { "$ref": "#/$defs/dispatch" } },
+    "worktrees": { "type": "array", "items": { "$ref": "#/$defs/worktree" } },
+    "terminals": { "type": "array", "items": { "$ref": "#/$defs/terminal" } },
+    "promptDeliveries": { "type": "array", "items": { "$ref": "#/$defs/promptDelivery" } },
+    "handoffs": { "type": "array", "items": { "$ref": "#/$defs/handoff" } },
+    "validations": { "type": "array", "items": { "$ref": "#/$defs/validation" } },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "cleanupReceipts": { "type": "array", "items": { "$ref": "#/$defs/cleanupReceipt" } },
+    "final": { "$ref": "#/$defs/finalReport" },
+    "status": { "enum": ["planning", "running", "blocked", "failed", "validated", "cleanup-blocked", "complete"] }
+  },
+  "$defs": {
+    "fullOid": { "type": "string", "pattern": "^[0-9a-f]{40,128}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "path": { "type": "string", "minLength": 1 },
+    "parentInvariant": {
+      "type": "object",
+      "required": ["path", "branch", "head", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "branch": { "type": "string", "minLength": 1 },
+        "head": { "$ref": "#/$defs/fullOid" },
+        "status": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "trustDecision": {
+      "type": "object",
+      "required": ["classification", "rationale", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "classification": { "enum": ["trusted", "untrusted", "unknown"] },
+        "rationale": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/path" } }
+      }
+    },
+    "runtimePolicy": {
+      "type": "object",
+      "required": ["setupMode", "gjcBinary", "requestedModel", "requestedThinking", "tools", "environmentReceipt"],
+      "additionalProperties": false,
+      "properties": {
+        "setupMode": { "enum": ["skip", "inherit"] },
+        "gjcBinary": {
+          "type": "object",
+          "required": ["path", "sha256", "versionArtifact", "modelCatalogArtifact", "provenance"],
+          "additionalProperties": false,
+          "properties": {
+            "path": { "$ref": "#/$defs/path" },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "versionArtifact": { "$ref": "#/$defs/path" },
+            "modelCatalogArtifact": { "$ref": "#/$defs/path" },
+            "provenance": { "type": "string", "minLength": 1 }
+          }
+        },
+        "requestedModel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
+        "resolvedModel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
+        "requestedThinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
+        "resolvedThinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
+        "tools": { "type": "array", "minItems": 1, "items": { "enum": ["read", "search", "find", "edit", "write", "bash"] }, "uniqueItems": true },
+        "environmentReceipt": { "$ref": "#/$defs/path" },
+        "fallbacks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" }, "uniqueItems": true }
+      }
+    },
+    "sourceFact": {
+      "type": "object",
+      "required": ["contractPath", "contractSha256", "sourceHead"],
+      "additionalProperties": false,
+      "properties": {
+        "contractPath": { "$ref": "#/$defs/path" },
+        "contractSha256": { "$ref": "#/$defs/sha256" },
+        "sourceHead": { "$ref": "#/$defs/fullOid" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["taskId", "dispatchId", "phase", "dependsOn", "required", "worktreeId", "recordedBase", "ownedPaths", "model", "thinking", "promptPath", "promptSha256", "acceptance", "validationCommands", "handoffOutputs", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "dispatchId": { "type": "string", "minLength": 1 },
+        "phase": { "type": "string", "minLength": 1 },
+        "dependsOn": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "required": { "type": "boolean" },
+        "worktreeId": { "type": "string", "minLength": 1 },
+        "recordedBase": { "$ref": "#/$defs/fullOid" },
+        "ownedPaths": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/path" }, "uniqueItems": true },
+        "model": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
+        "thinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
+        "promptPath": { "$ref": "#/$defs/path" },
+        "promptSha256": { "$ref": "#/$defs/sha256" },
+        "acceptance": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "validationCommands": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "handoffOutputs": { "type": "array", "items": { "$ref": "#/$defs/path" } },
+        "status": { "enum": ["pending", "ready", "dispatched", "completed", "failed", "blocked", "cancelled", "cleanup-blocked"] }
+      }
+    },
+    "dispatch": {
+      "type": "object",
+      "required": ["taskId", "dispatchId", "terminalHandle", "createdAt", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "dispatchId": { "type": "string", "minLength": 1 },
+        "terminalHandle": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["active", "completed", "failed", "blocked", "cancelled"] }
+      }
+    },
+    "worktree": {
+      "type": "object",
+      "required": ["id", "path", "branch", "recordedBase", "setupMode"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/path" },
+        "branch": { "type": "string", "minLength": 1 },
+        "recordedBase": { "$ref": "#/$defs/fullOid" },
+        "setupMode": { "enum": ["skip", "inherit"] }
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "required": ["handle", "worktreeId", "title", "command", "identity"],
+      "additionalProperties": false,
+      "properties": {
+        "handle": { "type": "string", "minLength": 1 },
+        "worktreeId": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "command": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "identity": { "type": "string", "minLength": 1 }
+      }
+    },
+    "promptDelivery": {
+      "type": "object",
+      "required": ["taskId", "dispatchId", "path", "sha256", "bytes", "dispatchProof", "acknowledgment"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "dispatchId": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "dispatchProof": { "$ref": "#/$defs/path" },
+        "acknowledgment": { "$ref": "#/$defs/path" }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "required": ["fromTaskId", "toTaskId", "artifacts", "validatedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "fromTaskId": { "type": "string", "minLength": 1 },
+        "toTaskId": { "type": "string", "minLength": 1 },
+        "artifacts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
+        "validatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": ["name", "argv", "cwd", "startedAt", "endedAt", "exitCode", "stdout", "stderr"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "cwd": { "$ref": "#/$defs/path" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "exitCode": { "type": "integer", "minimum": 0 },
+        "stdout": { "$ref": "#/$defs/evidence" },
+        "stderr": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "cleanupReceipt": {
+      "type": "object",
+      "required": ["worktreeId", "head", "branchRef", "status", "decision", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "worktreeId": { "type": "string", "minLength": 1 },
+        "head": { "$ref": "#/$defs/fullOid" },
+        "branchRef": { "type": "string", "minLength": 1 },
+        "status": { "type": "array", "items": { "type": "string" } },
+        "decision": { "enum": ["removed", "preserved", "cleanup-blocked"] },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "finalReport": {
+      "type": "object",
+      "required": ["path", "sha256", "selectedHead", "parentInvariantMatch"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "selectedHead": { "$ref": "#/$defs/fullOid" },
+        "parentInvariantMatch": { "type": "boolean" }
+      }
+    }
+  }
+}
