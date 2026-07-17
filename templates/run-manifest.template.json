@@ -14,7 +14,11 @@
     "classification": "unknown",
     "rationale": "Repository command surfaces have been inventoried but no execution approval exists.",
     "evidence": [
-      "/private/orchid-review-20260717/logs-redacted/trust-inventory.json"
+      {
+        "path": "/private/orchid-review-20260717/logs-redacted/trust-inventory.json",
+        "sha256": "1010101010101010101010101010101010101010101010101010101010101010",
+        "bytes": 512
+      }
     ]
   },
   "runtimePolicy": {
@@ -22,40 +26,117 @@
     "gjcBinary": {
       "path": "/opt/gjc/bin/gjc",
       "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
-      "versionArtifact": "/private/orchid-review-20260717/logs-redacted/gjc-version.txt",
-      "modelCatalogArtifact": "/private/orchid-review-20260717/logs-redacted/gjc-models.json",
+      "versionArtifact": {
+        "path": "/private/orchid-review-20260717/logs-redacted/gjc-version.txt",
+        "sha256": "2323232323232323232323232323232323232323232323232323232323232323",
+        "bytes": 128
+      },
+      "modelCatalogArtifact": {
+        "path": "/private/orchid-review-20260717/logs-redacted/gjc-models.json",
+        "sha256": "2424242424242424242424242424242424242424242424242424242424242424",
+        "bytes": 1024
+      },
       "provenance": "Controller-managed installation verified outside the target repository."
     },
-    "requestedModel": "openai-codex/gpt-5.6-sol",
-    "resolvedModel": "openai-codex/gpt-5.6-sol",
-    "requestedThinking": "high",
-    "resolvedThinking": "high",
+    "routing": {
+      "requested": {
+        "provider": "openai-codex",
+        "model": "gpt-5.6-sol",
+        "thinking": "high",
+        "contextLimit": 200000
+      },
+      "resolved": {
+        "provider": "openai-codex",
+        "model": "gpt-5.6-sol",
+        "thinking": "high",
+        "contextLimit": 200000
+      },
+      "clamping": {
+        "applied": false,
+        "adjustments": []
+      },
+      "fallbackAttempts": [],
+      "selection": {
+        "source": "requested",
+        "fallbackOrdinal": null,
+        "resolvedAt": "2026-07-17T00:00:30Z",
+        "artifact": {
+          "path": "/private/orchid-review-20260717/receipts/runtime-resolution.json",
+          "sha256": "2525252525252525252525252525252525252525252525252525252525252525",
+          "bytes": 640
+        }
+      }
+    },
     "tools": ["read", "search", "find"],
     "goalEnabled": false,
-    "environmentReceipt": "/private/orchid-review-20260717/receipts/environment-policy.json",
-    "configurationIsolationReceipt": "/private/orchid-review-20260717/receipts/configuration-isolation.json",
-    "sessionIsolationReceipt": "/private/orchid-review-20260717/receipts/session-isolation.json",
+    "isolation": {
+      "configDirectory": "/private/orchid-review-20260717/runtime/config",
+      "sessionDirectory": "/private/orchid-review-20260717/runtime/session",
+      "sessionPersistence": false,
+      "extensionsEnabled": false,
+      "skillsEnabled": false,
+      "rulesEnabled": false,
+      "ptyEnabled": false,
+      "environmentReceipt": {
+        "path": "/private/orchid-review-20260717/receipts/environment-policy.json",
+        "sha256": "2626262626262626262626262626262626262626262626262626262626262626",
+        "bytes": 768,
+        "redacted": true
+      },
+      "configurationReceipt": {
+        "path": "/private/orchid-review-20260717/receipts/configuration-isolation.json",
+        "sha256": "2727272727272727272727272727272727272727272727272727272727272727",
+        "bytes": 384,
+        "redacted": true
+      },
+      "sessionReceipt": {
+        "path": "/private/orchid-review-20260717/receipts/session-isolation.json",
+        "sha256": "2828282828282828282828282828282828282828282828282828282828282828",
+        "bytes": 384,
+        "redacted": true
+      }
+    },
     "authentication": {
       "mode": "broker",
+      "status": "authenticated",
+      "blockedReason": null,
       "redactedReceipt": {
         "path": "/private/orchid-review-20260717/receipts/authentication.json",
         "sha256": "abababababababababababababababababababababababababababababababab",
         "bytes": 384,
         "redacted": true
       },
-      "authenticatedProbe": {
+      "probe": {
         "executedAt": "2026-07-17T00:01:00Z",
         "exactChildEnvironment": true,
+        "exactLaunchEnvelope": true,
         "authenticated": true,
+        "environmentSha256": "3030303030303030303030303030303030303030303030303030303030303030",
+        "argvSha256": "3131313131313131313131313131313131313131313131313131313131313131",
+        "sanitizedArgv": [
+          "gjc",
+          "--model",
+          "openai-codex/gpt-5.6-sol",
+          "--thinking",
+          "high",
+          "--session-dir",
+          "/private/orchid-review-20260717/runtime/session",
+          "--no-session",
+          "--no-extensions",
+          "--no-skills",
+          "--no-rules",
+          "--no-pty",
+          "--tools",
+          "read,search,find"
+        ],
         "artifact": {
           "path": "/private/orchid-review-20260717/receipts/authenticated-probe.json",
-          "sha256": "bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
-          "bytes": 384,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "bytes": 512,
           "redacted": true
         }
       }
-    },
-    "fallbacks": []
+    }
   },
   "source": {
     "contractPath": "/private/orchid-review-20260717/source/gjc-source-contract.json",
@@ -67,119 +148,15 @@
     "reason": "The implementation stage consumes a verified reconnaissance handoff.",
     "conditionalIntegration": false
   },
-  "tasks": [
-    {
-      "taskId": "task_implementation_02",
-      "dispatchId": "dispatch_implementation_02",
-      "phase": "implementation",
-      "dependsOn": [],
-      "required": true,
-      "worktreeId": "repo_example::/workspace/orchid-review-implementation",
-      "recordedBase": "1111111111111111111111111111111111111111",
-      "ownedPaths": ["src/owned-slice/**"],
-      "model": "openai-codex/gpt-5.6-sol",
-      "thinking": "high",
-      "promptPath": "/private/orchid-review-20260717/tasks/implementation.md",
-      "promptSha256": "5555555555555555555555555555555555555555555555555555555555555555",
-      "acceptance": ["Owned behavior passes its approved validation."],
-      "validationCommands": ["git diff --check 1111111111111111111111111111111111111111...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
-      "handoffOutputs": ["/private/orchid-review-20260717/handoffs/implementation.json"],
-      "status": "completed",
-      "workerDone": {
-        "status": "success",
-        "receipt": {
-          "path": "/private/orchid-review-20260717/receipts/worker-completion.json",
-          "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
-          "bytes": 2048
-        }
-      }
-    }
-  ],
-  "dispatches": [
-    {
-      "taskId": "task_implementation_02",
-      "dispatchId": "dispatch_implementation_02",
-      "terminalHandle": "term_gjc_worker",
-      "createdAt": "2026-07-17T00:05:00Z",
-      "status": "completed"
-    }
-  ],
-  "worktrees": [
-    {
-      "id": "repo_example::/workspace/orchid-review-implementation",
-      "path": "/workspace/orchid-review-implementation",
-      "branch": "orca/orchid-review-implementation",
-      "recordedBase": "1111111111111111111111111111111111111111",
-      "setupMode": "skip"
-    }
-  ],
-  "terminals": [
-    {
-      "handle": "term_gjc_worker",
-      "worktreeId": "repo_example::/workspace/orchid-review-implementation",
-      "title": "orchid-review-implementation",
-      "command": [
-        "gjc",
-        "--credential",
-        "brokered-provider-session",
-        "--model",
-        "openai-codex/gpt-5.6-sol",
-        "--thinking",
-        "high",
-        "--session-dir",
-        "/private/orchid-review-20260717/runtime/session",
-        "--no-session",
-        "--no-extensions",
-        "--no-skills",
-        "--no-rules",
-        "--no-pty",
-        "--tools",
-        "read,search,find"
-      ],
-      "identity": "pane_orchid_worker"
-    }
-  ],
-  "promptDeliveries": [
-    {
-      "taskId": "task_implementation_02",
-      "dispatchId": "dispatch_implementation_02",
-      "terminalHandle": "term_gjc_worker",
-      "path": "/private/orchid-review-20260717/tasks/implementation.md",
-      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
-      "bytes": 2048,
-      "dispatchShowArtifact": {
-        "path": "/private/orchid-review-20260717/receipts/dispatch-show.json",
-        "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
-        "bytes": 512
-      },
-      "preSubmitReadArtifact": {
-        "path": "/private/orchid-review-20260717/receipts/terminal-read-before.json",
-        "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
-        "bytes": 512
-      },
-      "pastedComposerVisible": true,
-      "enterSubmissionCount": 1,
-      "enterSubmissionArtifact": {
-        "path": "/private/orchid-review-20260717/receipts/terminal-enter.json",
-        "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
-        "bytes": 256
-      },
-      "postSubmitReadArtifact": {
-        "path": "/private/orchid-review-20260717/receipts/terminal-read-after.json",
-        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "bytes": 512
-      },
-      "acknowledgmentArtifact": null,
-      "observedActiveState": "active",
-      "acceptedAt": "2026-07-17T00:05:02Z",
-      "waitStartedAfterAccepted": true,
-      "accepted": true
-    }
-  ],
-  "handoffs": [],
-  "validations": [],
-  "evidence": [],
-  "cleanupReceipts": [],
+  "livenessPolicy": {
+    "promptAcceptanceTimeoutSeconds": 60,
+    "activePollTimeoutSeconds": 60,
+    "activeLivenessWindowSeconds": 120,
+    "requiredActiveAbandonment": "forbidden-while-active",
+    "optionalGraceDefaultSeconds": 60,
+    "optionalGraceMaximumSeconds": 120,
+    "optionalGraceStartsAfter": "required-deliverables-verified"
+  },
   "approvalPolicy": {
     "autoResolve": "recommended",
     "eligibleChoices": ["recommended", "approve"],
@@ -202,22 +179,208 @@
       "bytes": 512
     }
   },
-  "decisionReceipts": [
+  "tasks": [
     {
       "taskId": "task_implementation_02",
-      "dispatchId": "dispatch_implementation_02",
-      "choice": "recommended",
-      "source": "serialized-approval-policy",
-      "reversible": true,
-      "inScope": true,
-      "planPreserving": true,
-      "automatic": true,
-      "artifact": {
-        "path": "/private/orchid-review-20260717/receipts/decision-recommended.json",
-        "sha256": "dededededededededededededededededededededededededededededededede",
-        "bytes": 256
-      }
+      "phase": "implementation",
+      "dependsOn": [],
+      "required": true,
+      "worktree": {
+        "id": "repo_example::/workspace/orchid-review-implementation",
+        "path": "/workspace/orchid-review-implementation",
+        "branch": "orca/orchid-review-implementation",
+        "recordedBase": "1111111111111111111111111111111111111111",
+        "setupMode": "skip"
+      },
+      "ownedPaths": ["src/owned-slice/**"],
+      "promptSpec": {
+        "path": "/private/orchid-review-20260717/tasks/implementation.md",
+        "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "bytes": 2048
+      },
+      "acceptance": ["Owned behavior passes its approved validation."],
+      "validationCommands": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--check",
+            "1111111111111111111111111111111111111111...aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ],
+          "cwd": "/workspace/orchid-review-implementation"
+        }
+      ],
+      "handoffInputs": [],
+      "handoffOutputs": [
+        {
+          "path": "/private/orchid-review-20260717/handoffs/implementation.json",
+          "sha256": "5656565656565656565656565656565656565656565656565656565656565656",
+          "bytes": 1024
+        }
+      ],
+      "lifecycle": {
+        "dispatch": {
+          "dispatchId": "dispatch_implementation_02",
+          "createdAt": "2026-07-17T00:05:00Z",
+          "status": "completed",
+          "terminal": {
+            "handle": "term_gjc_worker",
+            "stableIdentity": "pane_orchid_worker",
+            "title": "orchid-review-implementation",
+            "agentType": "gjc",
+            "launchedAt": "2026-07-17T00:04:59Z",
+            "launchEnvelopeArtifact": {
+              "path": "/private/orchid-review-20260717/receipts/authenticated-probe.json",
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "bytes": 512
+            }
+          }
+        },
+        "promptDelivery": {
+          "identity": {
+            "taskId": "task_implementation_02",
+            "dispatchId": "dispatch_implementation_02",
+            "terminalHandle": "term_gjc_worker",
+            "stableTerminalIdentity": "pane_orchid_worker"
+          },
+          "promptSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+          "dispatchShowArtifact": {
+            "path": "/private/orchid-review-20260717/receipts/dispatch-show.json",
+            "sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+            "bytes": 512
+          },
+          "acceptanceTimeoutSeconds": 60,
+          "startedAt": "2026-07-17T00:05:00Z",
+          "deadlineAt": "2026-07-17T00:06:00Z",
+          "resendCount": 0,
+          "attemptNumber": 1,
+          "phases": [
+            {
+              "sequence": 1,
+              "phase": "pre-submit-read",
+              "terminalState": "composer-visible",
+              "cursor": 10,
+              "capturedAt": "2026-07-17T00:05:00.100Z",
+              "artifact": {
+                "path": "/private/orchid-review-20260717/receipts/terminal-read-before.json",
+                "sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+                "bytes": 512
+              }
+            },
+            {
+              "sequence": 2,
+              "phase": "enter-submit",
+              "submissionCount": 1,
+              "submittedAt": "2026-07-17T00:05:00.200Z",
+              "artifact": {
+                "path": "/private/orchid-review-20260717/receipts/terminal-enter.json",
+                "sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+                "bytes": 256
+              }
+            },
+            {
+              "sequence": 3,
+              "phase": "post-submit-read",
+              "terminalState": "active",
+              "cursor": 20,
+              "capturedAt": "2026-07-17T00:05:01Z",
+              "artifact": {
+                "path": "/private/orchid-review-20260717/receipts/terminal-read-after.json",
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bytes": 512
+              }
+            }
+          ],
+          "outcome": "accepted",
+          "acceptedAt": "2026-07-17T00:05:02Z",
+          "longWaitAllowed": true
+        },
+        "monitoring": {
+          "startedAt": "2026-07-17T00:05:02Z",
+          "pollTimeoutSeconds": 60,
+          "livenessWindowSeconds": 120,
+          "polls": [
+            {
+              "sequence": 1,
+              "startedAt": "2026-07-17T00:05:02Z",
+              "endedAt": "2026-07-17T00:06:02Z",
+              "result": "active",
+              "activeEvidenceAt": "2026-07-17T00:06:01Z",
+              "artifact": {
+                "path": "/private/orchid-review-20260717/receipts/poll-01.json",
+                "sha256": "6161616161616161616161616161616161616161616161616161616161616161",
+                "bytes": 384
+              }
+            },
+            {
+              "sequence": 2,
+              "startedAt": "2026-07-17T00:06:02Z",
+              "endedAt": "2026-07-17T00:06:30Z",
+              "result": "completed",
+              "activeEvidenceAt": null,
+              "artifact": {
+                "path": "/private/orchid-review-20260717/receipts/poll-02.json",
+                "sha256": "6262626262626262626262626262626262626262626262626262626262626262",
+                "bytes": 384
+              }
+            }
+          ],
+          "lastActiveAt": "2026-07-17T00:06:01Z",
+          "outcome": "completed",
+          "abandoned": false,
+          "optionalGrace": null
+        },
+        "decision": {
+          "identity": {
+            "taskId": "task_implementation_02",
+            "dispatchId": "dispatch_implementation_02"
+          },
+          "kind": "automatic",
+          "choice": "recommended",
+          "source": "serialized-approval-policy",
+          "reversible": true,
+          "inScope": true,
+          "planPreserving": true,
+          "automatic": true,
+          "recordedAt": "2026-07-17T00:05:03Z",
+          "artifact": {
+            "path": "/private/orchid-review-20260717/receipts/decision-recommended.json",
+            "sha256": "dededededededededededededededededededededededededededededededede",
+            "bytes": 256
+          }
+        },
+        "completion": {
+          "identity": {
+            "taskId": "task_implementation_02",
+            "dispatchId": "dispatch_implementation_02"
+          },
+          "status": "success",
+          "receivedAt": "2026-07-17T00:06:31Z",
+          "receipt": {
+            "path": "/private/orchid-review-20260717/receipts/worker-completion.json",
+            "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "bytes": 2048
+          }
+        },
+        "cleanup": {
+          "worktreeId": "repo_example::/workspace/orchid-review-implementation",
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "branchRef": "refs/heads/orca/orchid-review-implementation",
+          "checkoutState": "clean",
+          "status": [],
+          "decision": "preserved",
+          "artifact": {
+            "path": "/private/orchid-review-20260717/cleanup/preservation.json",
+            "sha256": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+            "bytes": 128
+          }
+        }
+      },
+      "status": "completed"
     }
   ],
+  "validations": [],
+  "evidence": [],
+  "final": null,
   "status": "running"
 }

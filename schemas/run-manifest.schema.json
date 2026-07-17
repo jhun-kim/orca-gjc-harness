@@ -14,17 +14,12 @@
     "runtimePolicy",
     "source",
     "mode",
+    "livenessPolicy",
+    "approvalPolicy",
     "tasks",
-    "dispatches",
-    "worktrees",
-    "terminals",
-    "promptDeliveries",
-    "handoffs",
     "validations",
     "evidence",
-    "cleanupReceipts",
-    "approvalPolicy",
-    "decisionReceipts",
+    "final",
     "status"
   ],
   "additionalProperties": false,
@@ -34,38 +29,104 @@
     "createdAt": { "type": "string", "format": "date-time" },
     "coordinatorHandle": { "type": "string", "minLength": 1 },
     "parentInvariantBefore": { "$ref": "#/$defs/parentInvariant" },
-    "parentInvariantAfter": { "anyOf": [{ "$ref": "#/$defs/parentInvariant" }, { "type": "null" }] },
+    "parentInvariantAfter": {
+      "anyOf": [
+        { "$ref": "#/$defs/parentInvariant" },
+        { "type": "null" }
+      ]
+    },
     "trust": { "$ref": "#/$defs/trustDecision" },
     "runtimePolicy": { "$ref": "#/$defs/runtimePolicy" },
     "source": { "$ref": "#/$defs/sourceFact" },
-    "mode": {
-      "type": "object",
-      "required": ["selected", "reason", "conditionalIntegration"],
-      "additionalProperties": false,
-      "properties": {
-        "selected": { "enum": ["single", "race", "parallel-build", "pipeline"] },
-        "reason": { "type": "string", "minLength": 1 },
-        "conditionalIntegration": { "type": "boolean" }
-      }
-    },
-    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } },
-    "dispatches": { "type": "array", "items": { "$ref": "#/$defs/dispatch" } },
-    "worktrees": { "type": "array", "items": { "$ref": "#/$defs/worktree" } },
-    "terminals": { "type": "array", "items": { "$ref": "#/$defs/terminal" } },
-    "promptDeliveries": { "type": "array", "items": { "$ref": "#/$defs/promptDelivery" } },
-    "handoffs": { "type": "array", "items": { "$ref": "#/$defs/handoff" } },
-    "validations": { "type": "array", "items": { "$ref": "#/$defs/validation" } },
-    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
-    "cleanupReceipts": { "type": "array", "items": { "$ref": "#/$defs/cleanupReceipt" } },
-    "final": { "$ref": "#/$defs/finalReport" },
+    "mode": { "$ref": "#/$defs/mode" },
+    "livenessPolicy": { "$ref": "#/$defs/livenessPolicy" },
     "approvalPolicy": { "$ref": "#/$defs/approvalPolicy" },
-    "decisionReceipts": { "type": "array", "items": { "$ref": "#/$defs/decisionReceipt" } },
-    "status": { "enum": ["planning", "running", "blocked", "failed", "validated", "cleanup-blocked", "complete"] }
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/taskLifecycle" },
+      "uniqueItems": true
+    },
+    "validations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/validation" },
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" },
+      "uniqueItems": true
+    },
+    "final": {
+      "anyOf": [
+        { "$ref": "#/$defs/finalReport" },
+        { "type": "null" }
+      ]
+    },
+    "status": {
+      "enum": [
+        "planning",
+        "running",
+        "blocked",
+        "failed",
+        "validated",
+        "cleanup-blocked",
+        "complete"
+      ]
+    }
   },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "runtimePolicy": {
+            "type": "object",
+            "properties": {
+              "authentication": {
+                "type": "object",
+                "properties": { "status": { "const": "blocked" } },
+                "required": ["status"]
+              }
+            },
+            "required": ["authentication"]
+          }
+        },
+        "required": ["runtimePolicy"]
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "tasks": { "type": "array", "maxItems": 0 },
+          "status": { "const": "blocked" }
+        }
+      }
+    }
+  ],
   "$defs": {
     "fullOid": { "type": "string", "pattern": "^[0-9a-f]{40,128}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "path": { "type": "string", "minLength": 1 },
+    "evidence": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "redactedEvidence": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes", "redacted"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "redacted": { "const": true }
+      }
+    },
     "parentInvariant": {
       "type": "object",
       "required": ["path", "branch", "head", "status"],
@@ -73,8 +134,10 @@
       "properties": {
         "path": { "$ref": "#/$defs/path" },
         "branch": {
-          "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
-          "description": "Null means the worktree is detached."
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
         },
         "head": { "$ref": "#/$defs/fullOid" },
         "status": { "type": "array", "items": { "type": "string" } }
@@ -87,25 +150,262 @@
       "properties": {
         "classification": { "enum": ["trusted", "untrusted", "unknown"] },
         "rationale": { "type": "string", "minLength": 1 },
-        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/path" } }
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/evidence" },
+          "uniqueItems": true
+        }
       }
+    },
+    "route": {
+      "type": "object",
+      "required": ["provider", "model", "thinking", "contextLimit"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "model": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "thinking": { "enum": ["ultra", "high", "medium", "low"] },
+        "contextLimit": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "clampingAdjustment": {
+      "type": "object",
+      "required": ["field", "requestedValue", "resolvedValue", "reason", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "field": { "enum": ["thinking", "contextLimit"] },
+        "requestedValue": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "integer", "minimum": 1 }
+          ]
+        },
+        "resolvedValue": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "integer", "minimum": 1 }
+          ]
+        },
+        "reason": { "type": "string", "minLength": 1 },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "clamping": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["applied", "adjustments"],
+          "additionalProperties": false,
+          "properties": {
+            "applied": { "const": false },
+            "adjustments": { "type": "array", "maxItems": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["applied", "adjustments"],
+          "additionalProperties": false,
+          "properties": {
+            "applied": { "const": true },
+            "adjustments": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/clampingAdjustment" },
+              "uniqueItems": true
+            }
+          }
+        }
+      ]
+    },
+    "fallbackAttempt": {
+      "type": "object",
+      "required": ["ordinal", "route", "outcome", "rejectionReason", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "route": { "$ref": "#/$defs/route" },
+        "outcome": { "enum": ["rejected", "selected"] },
+        "rejectionReason": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "outcome": { "const": "rejected" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "rejectionReason": { "type": "string", "minLength": 1 } }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "outcome": { "const": "selected" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "type": "object",
+            "properties": { "rejectionReason": { "type": "null" } }
+          }
+        }
+      ]
+    },
+    "routeSelection": {
+      "type": "object",
+      "required": ["source", "fallbackOrdinal", "resolvedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "enum": ["requested", "fallback"] },
+        "fallbackOrdinal": {
+          "anyOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "source": { "const": "requested" } },
+            "required": ["source"]
+          },
+          "then": { "type": "object", "properties": { "fallbackOrdinal": { "type": "null" } } }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "source": { "const": "fallback" } },
+            "required": ["source"]
+          },
+          "then": { "type": "object", "properties": { "fallbackOrdinal": { "type": "integer", "minimum": 1 } } }
+        }
+      ]
+    },
+    "routing": {
+      "type": "object",
+      "required": ["requested", "resolved", "clamping", "fallbackAttempts", "selection"],
+      "additionalProperties": false,
+      "properties": {
+        "requested": { "$ref": "#/$defs/route" },
+        "resolved": { "$ref": "#/$defs/route" },
+        "clamping": { "$ref": "#/$defs/clamping" },
+        "fallbackAttempts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fallbackAttempt" },
+          "uniqueItems": true
+        },
+        "selection": { "$ref": "#/$defs/routeSelection" }
+      }
+    },
+    "authenticationProbe": {
+      "type": "object",
+      "required": [
+        "executedAt",
+        "exactChildEnvironment",
+        "exactLaunchEnvelope",
+        "authenticated",
+        "environmentSha256",
+        "argvSha256",
+        "sanitizedArgv",
+        "artifact"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "executedAt": { "type": "string", "format": "date-time" },
+        "exactChildEnvironment": { "const": true },
+        "exactLaunchEnvelope": { "const": true },
+        "authenticated": { "type": "boolean" },
+        "environmentSha256": { "$ref": "#/$defs/sha256" },
+        "argvSha256": { "$ref": "#/$defs/sha256" },
+        "sanitizedArgv": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "not": { "pattern": "^--(credential|api-key|mpreset|default)$" }
+          }
+        },
+        "artifact": { "$ref": "#/$defs/redactedEvidence" }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "required": ["mode", "status", "blockedReason", "redactedReceipt", "probe"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["broker", "trusted-controller-vault"] },
+        "status": { "enum": ["authenticated", "blocked"] },
+        "blockedReason": {
+          "anyOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        },
+        "redactedReceipt": { "$ref": "#/$defs/redactedEvidence" },
+        "probe": { "$ref": "#/$defs/authenticationProbe" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "status": { "const": "authenticated" } },
+            "required": ["status"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "blockedReason": { "type": "null" },
+              "probe": {
+                "type": "object",
+                "properties": { "authenticated": { "const": true } },
+                "required": ["authenticated"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "status": { "const": "blocked" } },
+            "required": ["status"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "blockedReason": { "type": "string", "minLength": 1 },
+              "probe": {
+                "type": "object",
+                "properties": { "authenticated": { "const": false } },
+                "required": ["authenticated"]
+              }
+            }
+          }
+        }
+      ]
     },
     "runtimePolicy": {
       "type": "object",
       "required": [
         "setupMode",
         "gjcBinary",
-        "requestedModel",
-        "resolvedModel",
-        "requestedThinking",
-        "resolvedThinking",
+        "routing",
         "tools",
         "goalEnabled",
-        "environmentReceipt",
-        "configurationIsolationReceipt",
-        "sessionIsolationReceipt",
-        "authentication",
-        "fallbacks"
+        "isolation",
+        "authentication"
       ],
       "additionalProperties": false,
       "properties": {
@@ -117,25 +417,48 @@
           "properties": {
             "path": { "$ref": "#/$defs/path" },
             "sha256": { "$ref": "#/$defs/sha256" },
-            "versionArtifact": { "$ref": "#/$defs/path" },
-            "modelCatalogArtifact": { "$ref": "#/$defs/path" },
+            "versionArtifact": { "$ref": "#/$defs/evidence" },
+            "modelCatalogArtifact": { "$ref": "#/$defs/evidence" },
             "provenance": { "type": "string", "minLength": 1 }
           }
         },
-        "requestedModel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
-        "resolvedModel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
-        "requestedThinking": { "enum": ["ultra", "high", "medium", "low"] },
-        "resolvedThinking": { "enum": ["ultra", "high", "medium", "low"] },
-        "tools": { "type": "array", "minItems": 1, "items": { "enum": ["read", "search", "find", "edit", "write", "bash"] }, "uniqueItems": true },
-        "goalEnabled": {
-          "const": false,
-          "description": "The goal tool can remain active despite --tools and must be disabled in the isolated config."
+        "routing": { "$ref": "#/$defs/routing" },
+        "tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["read", "search", "find", "edit", "write", "bash"] },
+          "uniqueItems": true
         },
-        "environmentReceipt": { "$ref": "#/$defs/path" },
-        "configurationIsolationReceipt": { "$ref": "#/$defs/path" },
-        "sessionIsolationReceipt": { "$ref": "#/$defs/path" },
-        "authentication": { "$ref": "#/$defs/authentication" },
-        "fallbacks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" }, "uniqueItems": true }
+        "goalEnabled": { "const": false },
+        "isolation": {
+          "type": "object",
+          "required": [
+            "configDirectory",
+            "sessionDirectory",
+            "sessionPersistence",
+            "extensionsEnabled",
+            "skillsEnabled",
+            "rulesEnabled",
+            "ptyEnabled",
+            "environmentReceipt",
+            "configurationReceipt",
+            "sessionReceipt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "configDirectory": { "$ref": "#/$defs/path" },
+            "sessionDirectory": { "$ref": "#/$defs/path" },
+            "sessionPersistence": { "const": false },
+            "extensionsEnabled": { "const": false },
+            "skillsEnabled": { "const": false },
+            "rulesEnabled": { "const": false },
+            "ptyEnabled": { "const": false },
+            "environmentReceipt": { "$ref": "#/$defs/redactedEvidence" },
+            "configurationReceipt": { "$ref": "#/$defs/redactedEvidence" },
+            "sessionReceipt": { "$ref": "#/$defs/redactedEvidence" }
+          }
+        },
+        "authentication": { "$ref": "#/$defs/authentication" }
       }
     },
     "sourceFact": {
@@ -148,257 +471,36 @@
         "sourceHead": { "$ref": "#/$defs/fullOid" }
       }
     },
-    "task": {
+    "mode": {
+      "type": "object",
+      "required": ["selected", "reason", "conditionalIntegration"],
+      "additionalProperties": false,
+      "properties": {
+        "selected": { "enum": ["single", "race", "parallel-build", "pipeline"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "conditionalIntegration": { "type": "boolean" }
+      }
+    },
+    "livenessPolicy": {
       "type": "object",
       "required": [
-        "taskId",
-        "dispatchId",
-        "phase",
-        "dependsOn",
-        "required",
-        "worktreeId",
-        "recordedBase",
-        "ownedPaths",
-        "model",
-        "thinking",
-        "promptPath",
-        "promptSha256",
-        "acceptance",
-        "validationCommands",
-        "handoffOutputs",
-        "status",
-        "workerDone"
+        "promptAcceptanceTimeoutSeconds",
+        "activePollTimeoutSeconds",
+        "activeLivenessWindowSeconds",
+        "requiredActiveAbandonment",
+        "optionalGraceDefaultSeconds",
+        "optionalGraceMaximumSeconds",
+        "optionalGraceStartsAfter"
       ],
       "additionalProperties": false,
       "properties": {
-        "taskId": { "type": "string", "minLength": 1 },
-        "dispatchId": { "type": "string", "minLength": 1 },
-        "phase": { "type": "string", "minLength": 1 },
-        "dependsOn": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
-        "required": { "type": "boolean" },
-        "worktreeId": { "type": "string", "minLength": 1 },
-        "recordedBase": { "$ref": "#/$defs/fullOid" },
-        "ownedPaths": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/path" }, "uniqueItems": true },
-        "model": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
-        "thinking": { "enum": ["ultra", "high", "medium", "low"] },
-        "promptPath": { "$ref": "#/$defs/path" },
-        "promptSha256": { "$ref": "#/$defs/sha256" },
-        "acceptance": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "validationCommands": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-        "handoffOutputs": { "type": "array", "items": { "$ref": "#/$defs/path" } },
-        "status": {
-          "enum": ["pending", "ready", "dispatched", "completed", "failed", "blocked", "cancelled", "cleanup-blocked"],
-          "description": "Orca task lifecycle state, distinct from worker_done status."
-        },
-        "workerDone": { "$ref": "#/$defs/workerDoneResult" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] },
-          "then": {
-            "properties": {
-              "workerDone": {
-                "type": "object",
-                "properties": { "status": { "const": "success" } },
-                "required": ["status"]
-              }
-            }
-          }
-        },
-        {
-          "if": { "properties": { "status": { "const": "failed" } }, "required": ["status"] },
-          "then": {
-            "properties": {
-              "workerDone": {
-                "type": "object",
-                "properties": { "status": { "const": "failure" } },
-                "required": ["status"]
-              }
-            }
-          }
-        },
-        {
-          "if": { "properties": { "status": { "const": "blocked" } }, "required": ["status"] },
-          "then": {
-            "properties": {
-              "workerDone": {
-                "type": "object",
-                "properties": { "status": { "const": "blocked" } },
-                "required": ["status"]
-              }
-            }
-          }
-        }
-      ]
-    },
-    "workerDoneResult": {
-      "anyOf": [
-        { "type": "null" },
-        {
-          "type": "object",
-          "required": ["status", "receipt"],
-          "additionalProperties": false,
-          "properties": {
-            "status": {
-              "enum": ["success", "failure", "blocked"],
-              "description": "Exact completion-receipt status vocabulary."
-            },
-            "receipt": { "$ref": "#/$defs/evidence" }
-          }
-        }
-      ]
-    },
-    "dispatch": {
-      "type": "object",
-      "required": ["taskId", "dispatchId", "terminalHandle", "createdAt", "status"],
-      "additionalProperties": false,
-      "properties": {
-        "taskId": { "type": "string", "minLength": 1 },
-        "dispatchId": { "type": "string", "minLength": 1 },
-        "terminalHandle": { "type": "string", "minLength": 1 },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "status": { "enum": ["dispatched", "active", "completed", "failed", "blocked", "cancelled"] }
-      }
-    },
-    "worktree": {
-      "type": "object",
-      "required": ["id", "path", "branch", "recordedBase", "setupMode"],
-      "additionalProperties": false,
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "path": { "$ref": "#/$defs/path" },
-        "branch": { "type": "string", "minLength": 1 },
-        "recordedBase": { "$ref": "#/$defs/fullOid" },
-        "setupMode": { "enum": ["skip", "inherit"] }
-      }
-    },
-    "terminal": {
-      "type": "object",
-      "required": ["handle", "worktreeId", "title", "command", "identity"],
-      "additionalProperties": false,
-      "properties": {
-        "handle": { "type": "string", "minLength": 1 },
-        "worktreeId": { "type": "string", "minLength": 1 },
-        "title": { "type": "string", "minLength": 1 },
-        "command": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "identity": { "type": "string", "minLength": 1 }
-      }
-    },
-    "promptDelivery": {
-      "type": "object",
-      "required": [
-        "taskId",
-        "dispatchId",
-        "terminalHandle",
-        "path",
-        "sha256",
-        "bytes",
-        "dispatchShowArtifact",
-        "preSubmitReadArtifact",
-        "pastedComposerVisible",
-        "enterSubmissionCount",
-        "enterSubmissionArtifact",
-        "postSubmitReadArtifact",
-        "observedActiveState",
-        "acceptedAt",
-        "waitStartedAfterAccepted",
-        "accepted"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "taskId": { "type": "string", "minLength": 1 },
-        "dispatchId": { "type": "string", "minLength": 1 },
-        "terminalHandle": { "type": "string", "minLength": 1 },
-        "path": { "$ref": "#/$defs/path" },
-        "sha256": { "$ref": "#/$defs/sha256" },
-        "bytes": { "type": "integer", "minimum": 1 },
-        "dispatchShowArtifact": { "$ref": "#/$defs/evidence" },
-        "preSubmitReadArtifact": { "$ref": "#/$defs/evidence" },
-        "pastedComposerVisible": { "type": "boolean" },
-        "enterSubmissionCount": { "type": "integer", "minimum": 0, "maximum": 1 },
-        "enterSubmissionArtifact": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] },
-        "postSubmitReadArtifact": { "$ref": "#/$defs/evidence" },
-        "observedActiveState": {
-          "const": "active",
-          "description": "The post-submit terminal read must prove the dispatched task is active, not merely accepted by injection."
-        },
-        "acceptedAt": { "type": "string", "format": "date-time" },
-        "waitStartedAfterAccepted": {
-          "const": true,
-          "description": "No orchestration long wait may begin until active-state acceptance has been recorded."
-        },
-        "acknowledgmentArtifact": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] },
-        "accepted": {
-          "const": true,
-          "description": "Requires dispatch-show and terminal-read proof; send/inject acknowledgment alone is insufficient."
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "pastedComposerVisible": { "const": true } },
-            "required": ["pastedComposerVisible"]
-          },
-          "then": {
-            "properties": {
-              "enterSubmissionCount": { "const": 1 },
-              "enterSubmissionArtifact": { "$ref": "#/$defs/evidence" }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "pastedComposerVisible": { "const": false } },
-            "required": ["pastedComposerVisible"]
-          },
-          "then": {
-            "properties": {
-              "enterSubmissionCount": { "const": 0 },
-              "enterSubmissionArtifact": { "type": "null" }
-            }
-          }
-        }
-      ]
-    },
-    "authenticationReceipt": {
-      "type": "object",
-      "required": ["path", "sha256", "bytes", "redacted"],
-      "additionalProperties": false,
-      "properties": {
-        "path": { "$ref": "#/$defs/path" },
-        "sha256": { "$ref": "#/$defs/sha256" },
-        "bytes": { "type": "integer", "minimum": 1 },
-        "redacted": {
-          "const": true,
-          "description": "This receipt records mode and probe outcome, never credential values or raw environment content."
-        }
-      }
-    },
-    "authenticatedProbe": {
-      "type": "object",
-      "required": ["executedAt", "exactChildEnvironment", "authenticated", "artifact"],
-      "additionalProperties": false,
-      "properties": {
-        "executedAt": { "type": "string", "format": "date-time" },
-        "exactChildEnvironment": {
-          "const": true,
-          "description": "The probe uses the same reviewed environment and invocation shape as the child terminal."
-        },
-        "authenticated": { "const": true },
-        "artifact": { "$ref": "#/$defs/authenticationReceipt" }
-      }
-    },
-    "authentication": {
-      "type": "object",
-      "required": ["mode", "redactedReceipt", "authenticatedProbe"],
-      "additionalProperties": false,
-      "properties": {
-        "mode": {
-          "enum": ["broker", "trusted-controller-vault"],
-          "description": "Broker is preferred. The vault fallback shares only the trusted controller credential store."
-        },
-        "redactedReceipt": { "$ref": "#/$defs/authenticationReceipt" },
-        "authenticatedProbe": { "$ref": "#/$defs/authenticatedProbe" }
+        "promptAcceptanceTimeoutSeconds": { "const": 60 },
+        "activePollTimeoutSeconds": { "const": 60 },
+        "activeLivenessWindowSeconds": { "const": 120 },
+        "requiredActiveAbandonment": { "const": "forbidden-while-active" },
+        "optionalGraceDefaultSeconds": { "const": 60 },
+        "optionalGraceMaximumSeconds": { "const": 120 },
+        "optionalGraceStartsAfter": { "const": "required-deliverables-verified" }
       }
     },
     "approvalPolicy": {
@@ -436,49 +538,19 @@
         "receipt": { "$ref": "#/$defs/evidence" }
       }
     },
-    "decisionReceipt": {
+    "worktree": {
       "type": "object",
-      "required": ["taskId", "dispatchId", "choice", "source", "reversible", "inScope", "planPreserving", "automatic", "artifact"],
+      "required": ["id", "path", "branch", "recordedBase", "setupMode"],
       "additionalProperties": false,
       "properties": {
-        "taskId": { "type": "string", "minLength": 1 },
-        "dispatchId": { "type": "string", "minLength": 1 },
-        "choice": { "enum": ["recommended", "approve"] },
-        "source": { "const": "serialized-approval-policy" },
-        "reversible": { "const": true },
-        "inScope": { "const": true },
-        "planPreserving": { "const": true },
-        "automatic": { "const": true },
-        "artifact": { "$ref": "#/$defs/evidence" }
+        "id": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/path" },
+        "branch": { "type": "string", "minLength": 1 },
+        "recordedBase": { "$ref": "#/$defs/fullOid" },
+        "setupMode": { "enum": ["skip", "inherit"] }
       }
     },
-    "handoff": {
-      "type": "object",
-      "required": ["fromTaskId", "toTaskId", "artifacts", "validatedAt"],
-      "additionalProperties": false,
-      "properties": {
-        "fromTaskId": { "type": "string", "minLength": 1 },
-        "toTaskId": { "type": "string", "minLength": 1 },
-        "artifacts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
-        "validatedAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "validation": {
-      "type": "object",
-      "required": ["name", "argv", "cwd", "startedAt", "endedAt", "exitCode", "stdout", "stderr"],
-      "additionalProperties": false,
-      "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "cwd": { "$ref": "#/$defs/path" },
-        "startedAt": { "type": "string", "format": "date-time" },
-        "endedAt": { "type": "string", "format": "date-time" },
-        "exitCode": { "type": "integer", "minimum": 0 },
-        "stdout": { "$ref": "#/$defs/evidence" },
-        "stderr": { "$ref": "#/$defs/evidence" }
-      }
-    },
-    "evidence": {
+    "promptSpec": {
       "type": "object",
       "required": ["path", "sha256", "bytes"],
       "additionalProperties": false,
@@ -488,17 +560,557 @@
         "bytes": { "type": "integer", "minimum": 1 }
       }
     },
+    "validationCommand": {
+      "type": "object",
+      "required": ["argv", "cwd"],
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "cwd": { "$ref": "#/$defs/path" }
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "required": ["handle", "stableIdentity", "title", "agentType", "launchedAt", "launchEnvelopeArtifact"],
+      "additionalProperties": false,
+      "properties": {
+        "handle": { "type": "string", "minLength": 1 },
+        "stableIdentity": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "agentType": { "const": "gjc" },
+        "launchedAt": { "type": "string", "format": "date-time" },
+        "launchEnvelopeArtifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "dispatchReceipt": {
+      "type": "object",
+      "required": ["dispatchId", "createdAt", "status", "terminal"],
+      "additionalProperties": false,
+      "properties": {
+        "dispatchId": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["dispatched", "active", "completed", "failed", "blocked", "cancelled"] },
+        "terminal": { "$ref": "#/$defs/terminal" }
+      }
+    },
+    "promptIdentity": {
+      "type": "object",
+      "required": ["taskId", "dispatchId", "terminalHandle", "stableTerminalIdentity"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "dispatchId": { "type": "string", "minLength": 1 },
+        "terminalHandle": { "type": "string", "minLength": 1 },
+        "stableTerminalIdentity": { "type": "string", "minLength": 1 }
+      }
+    },
+    "taskDispatchIdentity": {
+      "type": "object",
+      "required": ["taskId", "dispatchId"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "dispatchId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "preComposerPhase": {
+      "type": "object",
+      "required": ["sequence", "phase", "terminalState", "cursor", "capturedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "const": 1 },
+        "phase": { "const": "pre-submit-read" },
+        "terminalState": { "const": "composer-visible" },
+        "cursor": { "type": "integer", "minimum": 0 },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "preActivePhase": {
+      "type": "object",
+      "required": ["sequence", "phase", "terminalState", "cursor", "capturedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "const": 1 },
+        "phase": { "const": "pre-submit-read" },
+        "terminalState": { "const": "active" },
+        "cursor": { "type": "integer", "minimum": 0 },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "enterPhase": {
+      "type": "object",
+      "required": ["sequence", "phase", "submissionCount", "submittedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "const": 2 },
+        "phase": { "const": "enter-submit" },
+        "submissionCount": { "const": 1 },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "postActivePhaseAfterEnter": {
+      "type": "object",
+      "required": ["sequence", "phase", "terminalState", "cursor", "capturedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "const": 3 },
+        "phase": { "const": "post-submit-read" },
+        "terminalState": { "const": "active" },
+        "cursor": { "type": "integer", "minimum": 0 },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "postActivePhaseWithoutEnter": {
+      "type": "object",
+      "required": ["sequence", "phase", "terminalState", "cursor", "capturedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "const": 2 },
+        "phase": { "const": "post-submit-read" },
+        "terminalState": { "const": "active" },
+        "cursor": { "type": "integer", "minimum": 0 },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "acceptedPromptPhases": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "prefixItems": [
+            { "$ref": "#/$defs/preComposerPhase" },
+            { "$ref": "#/$defs/enterPhase" },
+            { "$ref": "#/$defs/postActivePhaseAfterEnter" }
+          ],
+          "items": false
+        },
+        {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            { "$ref": "#/$defs/preActivePhase" },
+            { "$ref": "#/$defs/postActivePhaseWithoutEnter" }
+          ],
+          "items": false
+        }
+      ]
+    },
+    "blockedPromptPhase": {
+      "type": "object",
+      "required": ["sequence", "phase", "terminalState", "cursor", "capturedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "phase": { "enum": ["pre-submit-read", "post-submit-read"] },
+        "terminalState": { "enum": ["composer-visible", "idle", "unknown"] },
+        "cursor": { "type": "integer", "minimum": 0 },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "acceptedPromptDelivery": {
+      "type": "object",
+      "required": [
+        "identity",
+        "promptSha256",
+        "dispatchShowArtifact",
+        "acceptanceTimeoutSeconds",
+        "startedAt",
+        "deadlineAt",
+        "resendCount",
+        "attemptNumber",
+        "phases",
+        "outcome",
+        "acceptedAt",
+        "longWaitAllowed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/$defs/promptIdentity" },
+        "promptSha256": { "$ref": "#/$defs/sha256" },
+        "dispatchShowArtifact": { "$ref": "#/$defs/evidence" },
+        "acceptanceTimeoutSeconds": { "const": 60 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "deadlineAt": { "type": "string", "format": "date-time" },
+        "resendCount": { "const": 0 },
+        "attemptNumber": { "const": 1 },
+        "phases": { "$ref": "#/$defs/acceptedPromptPhases" },
+        "outcome": { "const": "accepted" },
+        "acceptedAt": { "type": "string", "format": "date-time" },
+        "longWaitAllowed": { "const": true }
+      }
+    },
+    "blockedPromptDelivery": {
+      "type": "object",
+      "required": [
+        "identity",
+        "promptSha256",
+        "dispatchShowArtifact",
+        "acceptanceTimeoutSeconds",
+        "startedAt",
+        "deadlineAt",
+        "resendCount",
+        "attemptNumber",
+        "phases",
+        "outcome",
+        "acceptedAt",
+        "blockedAt",
+        "blockedReason",
+        "longWaitAllowed"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/$defs/promptIdentity" },
+        "promptSha256": { "$ref": "#/$defs/sha256" },
+        "dispatchShowArtifact": { "$ref": "#/$defs/evidence" },
+        "acceptanceTimeoutSeconds": { "const": 60 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "deadlineAt": { "type": "string", "format": "date-time" },
+        "resendCount": { "const": 0 },
+        "attemptNumber": { "const": 1 },
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/blockedPromptPhase" },
+          "uniqueItems": true
+        },
+        "outcome": { "const": "blocked" },
+        "acceptedAt": { "type": "null" },
+        "blockedAt": { "type": "string", "format": "date-time" },
+        "blockedReason": {
+          "enum": [
+            "active-evidence-timeout",
+            "composer-remained-visible",
+            "identity-ambiguity",
+            "stale-terminal",
+            "dispatch-mismatch"
+          ]
+        },
+        "longWaitAllowed": { "const": false }
+      }
+    },
+    "promptDelivery": {
+      "oneOf": [
+        { "$ref": "#/$defs/acceptedPromptDelivery" },
+        { "$ref": "#/$defs/blockedPromptDelivery" },
+        { "type": "null" }
+      ]
+    },
+    "monitorPoll": {
+      "type": "object",
+      "required": ["sequence", "startedAt", "endedAt", "result", "activeEvidenceAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "result": { "enum": ["active", "completed", "failed", "blocked"] },
+        "activeEvidenceAt": {
+          "anyOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "result": { "const": "active" } },
+            "required": ["result"]
+          },
+          "then": { "type": "object", "properties": { "activeEvidenceAt": { "type": "string", "format": "date-time" } } }
+        }
+      ]
+    },
+    "optionalGrace": {
+      "type": "object",
+      "required": [
+        "policySource",
+        "configuredSeconds",
+        "requiredDeliverablesVerifiedAt",
+        "startedAt",
+        "endedAt",
+        "outcome",
+        "artifact"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "policySource": { "enum": ["default-60", "explicit-at-most-120"] },
+        "configuredSeconds": { "type": "integer", "minimum": 0, "maximum": 120 },
+        "requiredDeliverablesVerifiedAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "outcome": { "enum": ["completed", "grace-expired", "failed", "blocked"] },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "policySource": { "const": "default-60" } },
+            "required": ["policySource"]
+          },
+          "then": { "type": "object", "properties": { "configuredSeconds": { "const": 60 } } }
+        }
+      ]
+    },
+    "monitoring": {
+      "type": "object",
+      "required": [
+        "startedAt",
+        "pollTimeoutSeconds",
+        "livenessWindowSeconds",
+        "polls",
+        "lastActiveAt",
+        "outcome",
+        "abandoned",
+        "optionalGrace"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "startedAt": { "type": "string", "format": "date-time" },
+        "pollTimeoutSeconds": { "const": 60 },
+        "livenessWindowSeconds": { "const": 120 },
+        "polls": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/monitorPoll" },
+          "uniqueItems": true
+        },
+        "lastActiveAt": {
+          "anyOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        },
+        "outcome": { "enum": ["active", "completed", "failed", "blocked", "cancelled"] },
+        "abandoned": { "const": false },
+        "optionalGrace": {
+          "anyOf": [
+            { "$ref": "#/$defs/optionalGrace" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "automaticDecision": {
+      "type": "object",
+      "required": ["identity", "kind", "choice", "source", "reversible", "inScope", "planPreserving", "automatic", "recordedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/$defs/taskDispatchIdentity" },
+        "kind": { "const": "automatic" },
+        "choice": { "enum": ["recommended", "approve"] },
+        "source": { "const": "serialized-approval-policy" },
+        "reversible": { "const": true },
+        "inScope": { "const": true },
+        "planPreserving": { "const": true },
+        "automatic": { "const": true },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "escalatedDecision": {
+      "type": "object",
+      "required": ["identity", "kind", "category", "automatic", "recordedAt", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/$defs/taskDispatchIdentity" },
+        "kind": { "const": "escalated" },
+        "category": {
+          "enum": [
+            "destructive",
+            "irreversible",
+            "credential",
+            "secret",
+            "external-production",
+            "parent-mutation",
+            "merge",
+            "push",
+            "deploy",
+            "material-scope-change"
+          ]
+        },
+        "automatic": { "const": false },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "decision": {
+      "oneOf": [
+        { "$ref": "#/$defs/automaticDecision" },
+        { "$ref": "#/$defs/escalatedDecision" },
+        { "type": "null" }
+      ]
+    },
+    "completion": {
+      "type": "object",
+      "required": ["identity", "status", "receivedAt", "receipt"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "$ref": "#/$defs/taskDispatchIdentity" },
+        "status": { "enum": ["success", "failure", "blocked"] },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "receipt": { "$ref": "#/$defs/evidence" }
+      }
+    },
     "cleanupReceipt": {
       "type": "object",
-      "required": ["worktreeId", "head", "branchRef", "status", "decision", "artifact"],
+      "required": ["worktreeId", "head", "branchRef", "checkoutState", "status", "decision", "artifact"],
       "additionalProperties": false,
       "properties": {
         "worktreeId": { "type": "string", "minLength": 1 },
         "head": { "$ref": "#/$defs/fullOid" },
         "branchRef": { "type": "string", "minLength": 1 },
+        "checkoutState": { "enum": ["clean", "zero-delta", "dirty", "unknown", "deleted-worktree"] },
         "status": { "type": "array", "items": { "type": "string" } },
         "decision": { "enum": ["removed", "preserved", "cleanup-blocked"] },
         "artifact": { "$ref": "#/$defs/evidence" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "checkoutState": { "enum": ["dirty", "unknown"] } },
+            "required": ["checkoutState"]
+          },
+          "then": { "type": "object", "properties": { "decision": { "enum": ["preserved", "cleanup-blocked"] } } }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "checkoutState": { "const": "deleted-worktree" } },
+            "required": ["checkoutState"]
+          },
+          "then": { "type": "object", "properties": { "decision": { "const": "cleanup-blocked" } } }
+        }
+      ]
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": ["dispatch", "promptDelivery", "monitoring", "decision", "completion", "cleanup"],
+      "additionalProperties": false,
+      "properties": {
+        "dispatch": {
+          "anyOf": [
+            { "$ref": "#/$defs/dispatchReceipt" },
+            { "type": "null" }
+          ]
+        },
+        "promptDelivery": { "$ref": "#/$defs/promptDelivery" },
+        "monitoring": {
+          "anyOf": [
+            { "$ref": "#/$defs/monitoring" },
+            { "type": "null" }
+          ]
+        },
+        "decision": { "$ref": "#/$defs/decision" },
+        "completion": {
+          "anyOf": [
+            { "$ref": "#/$defs/completion" },
+            { "type": "null" }
+          ]
+        },
+        "cleanup": {
+          "anyOf": [
+            { "$ref": "#/$defs/cleanupReceipt" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "taskLifecycle": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "phase",
+        "dependsOn",
+        "required",
+        "worktree",
+        "ownedPaths",
+        "promptSpec",
+        "acceptance",
+        "validationCommands",
+        "handoffInputs",
+        "handoffOutputs",
+        "lifecycle",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "phase": { "type": "string", "minLength": 1 },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "required": { "type": "boolean" },
+        "worktree": { "$ref": "#/$defs/worktree" },
+        "ownedPaths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/path" },
+          "uniqueItems": true
+        },
+        "promptSpec": { "$ref": "#/$defs/promptSpec" },
+        "acceptance": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "validationCommands": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationCommand" },
+          "uniqueItems": true
+        },
+        "handoffInputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" },
+          "uniqueItems": true
+        },
+        "handoffOutputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" },
+          "uniqueItems": true
+        },
+        "lifecycle": { "$ref": "#/$defs/lifecycle" },
+        "status": {
+          "enum": ["pending", "ready", "active", "completed", "failed", "blocked", "cancelled", "cleanup-blocked"]
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": ["name", "argv", "cwd", "startedAt", "endedAt", "exitCode", "stdout", "stderr"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "cwd": { "$ref": "#/$defs/path" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "exitCode": { "type": "integer", "minimum": 0 },
+        "stdout": { "$ref": "#/$defs/evidence" },
+        "stderr": { "$ref": "#/$defs/evidence" }
       }
     },
     "finalReport": {

@@ -27,7 +27,8 @@ orca-gjc-harness/
 ├── LICENSE
 ├── schemas/
 │   ├── completion-receipt.schema.json
-│   └── run-manifest.schema.json
+│   ├── run-manifest.schema.json
+│   └── validate-run-manifest.mjs
 └── templates/
     ├── completion-receipt.template.json
     ├── run-manifest.template.json
@@ -51,18 +52,18 @@ The repository follows Semantic Versioning. The current compatibility-contract v
 
 ## Operating model
 
-1. **Gate activation.** Confirm Orca, a trustworthy GJC binary, exact model availability, target trust classification, a private run-evidence root, and an authenticated probe with the exact child environment. Failed or unavailable authentication blocks terminal creation and dispatch.
+1. **Gate activation.** Confirm Orca, a trustworthy GJC binary, exact model availability, target trust classification, a private run-evidence root, and an authenticated probe with the exact child environment and sanitized launch argv. A blocked probe is preserved as a non-secret receipt and forbids every task, terminal, and dispatch.
 2. **Freeze baseline.** Capture the parent worktree path, branch, full HEAD, and porcelain status. Parent mutation is outside this skill.
-3. **Create one manifest.** Serialize the run against [`schemas/run-manifest.schema.json`](schemas/run-manifest.schema.json), including separated configuration/session/authentication receipts, a redacted authenticated-probe receipt, approval policy, and automatic decision receipts.
+3. **Create one manifest.** Serialize the run against [`schemas/run-manifest.schema.json`](schemas/run-manifest.schema.json). Record requested/resolved provider, model, thinking, and context limits; clamping; ordered fallback/rejection evidence; exact-environment authentication; the fixed liveness policy; and approval policy. Each task has one nested lifecycle with at most one dispatch, prompt delivery, monitoring record, decision, completion, and cleanup receipt.
 4. **Choose a primary mode.** Use `single` for one narrow change, `race` for competing candidates, `parallel-build` for disjoint ownership, and `pipeline` for hash-verified staged work. Integration is conditional only.
-5. **Launch through Orca.** Orca creates the child worktree and terminal and injects a literal, hashed task spec. Before any long `orca orchestration check --wait`, acceptance requires `dispatch-show`, a terminal read before submission, exactly one Enter only when a pasted composer is visible, and a post-submit terminal read proving `active`; record that state, `acceptedAt`, and `waitStartedAfterAccepted=true`. A send/inject acknowledgment alone is insufficient.
-6. **Resolve routine decisions.** The coordinator automatically records the `Recommended` or `Approve` result only for reversible, in-scope, plan-preserving coding choices. Destructive, irreversible, credential, secret, external-production, parent-mutation, merge, push, deploy, and material scope changes escalate unless exactly pre-authorized.
-7. **Accept evidence, not prose.** Heartbeats, decision gates, one `worker_done`, full object IDs, hashes, exit codes, and non-empty artifacts form the handoff contract.
-8. **Validate and preserve.** Run approved validation in the selected child, preserve its branch/commit, clean only verified run-owned children, then compare parent invariants byte-for-byte.
+5. **Launch through Orca.** Orca creates the child worktree and terminal and injects one literal, hashed task spec. Prompt acceptance fails closed after 60 seconds. Before a long wait, bind `dispatch-show` and the exact task/dispatch/terminal/stable identity to an ordered pre-read, optional single Enter, and post-read with monotonic cursor/timestamp evidence proving `active`; no resend is permitted.
+6. **Monitor boundedly.** Poll required active work in repeated windows no longer than 60 seconds, maintain a 120-second liveness window, and never abandon required work while it remains active. Optional work gets 60 seconds of grace by default and at most 120 seconds, only after all required deliverables are verified.
+7. **Resolve routine decisions.** Automatically record `Recommended` or `Approve` only for reversible, in-scope, plan-preserving choices; never open a local human prompt. Destructive, irreversible, credential, secret, external-production, parent-mutation, merge, push, deploy, and material scope changes go through Orca escalation unless exactly pre-authorized.
+8. **Validate and preserve.** Validate with Ajv draft 2020 plus formats and [`schemas/validate-run-manifest.mjs`](schemas/validate-run-manifest.mjs), accept exactly one identity-bound `worker_done`, preserve dirty/unknown/deleted states, clean only verified run-owned children, and compare parent invariants byte-for-byte.
 
 ## GJC invocation safety
 
-The default requested worker route is `openai-codex/gpt-5.6-sol` with `high` thinking. It must be present in `gjc --list-models` output from a trusted controller context. GJC 0.11.1 exposes `ultra`, `high`, `medium`, and `low` thinking values, and supports `--credential`, `--session-dir`, `--no-extensions`, `--no-skills`, `--no-session`, `--no-pty`, and `--tools`. Per-task model or effort overrides are permitted only when serialized in the manifest, verified before launch, and accompanied by a risk rationale. The default fallback list is empty; a missing exact selector blocks execution.
+The default requested worker route is provider `openai-codex`, model `gpt-5.6-sol`, `high` thinking, and the verified model-catalog context limit. GJC 0.11.1 exposes `ultra`, `high`, `medium`, and `low` thinking values. The manifest records requested and resolved routes separately, every clamp adjustment, an empty fallback list by default, and a hashed reason for every rejected fallback. Without a selected fallback, requested and resolved provider/model must match. All workers in one manifest use that reviewed route; a different route requires a separately reviewed manifest rather than unconstrained per-task identity fields.
 
 Every launch uses an explicit model and thinking level plus these restrictive controls:
 
@@ -74,23 +75,30 @@ The initial read-only allowlist is `read,search,find`. Because the `goal` tool c
 
 ## Sanitized run environment
 
-Configuration, session, and authentication isolation are independent. Each worker receives a fresh run-scoped `GJC_CONFIG_DIR` and `--session-dir` outside the target repository and evidence tree; the directories contain only the reviewed minimal config needed to set `goal.enabled=false`. The coordinator removes shell-prefix/legacy aliases, applies a minimal allowlist, does not dump the raw environment, and sets `GJC_NO_PTY=1`, `GJC_BASH_NO_LOGIN=1`, `SHELL=/bin/sh`, `BASH_ENV=/dev/null`, `ENV=/dev/null`, `GIT_TERMINAL_PROMPT=0`, and `GIT_ASKPASS=/usr/bin/false`.
+Configuration, session, and authentication isolation are independent. Each worker receives a fresh run-scoped `GJC_CONFIG_DIR` and `--session-dir` outside the target repository and evidence tree; the directories contain only the reviewed minimal config needed to set `goal.enabled=false`. The coordinator removes shell-prefix/legacy aliases, applies a minimal allowlist, hashes the exact child environment without dumping it, and sets `GJC_NO_PTY=1`, `GJC_BASH_NO_LOGIN=1`, `SHELL=/bin/sh`, `BASH_ENV=/dev/null`, `ENV=/dev/null`, `GIT_TERMINAL_PROMPT=0`, and `GIT_ASKPASS=/usr/bin/false`.
 
-Authentication is broker-first: `--credential` may select an opaque non-secret broker handle, but that selector is never recorded. If the broker is unavailable, `trusted-controller-vault` is the only fallback: it reuses only the trusted controller credential store while config/session remain isolated, forbids inspection, copying, export, and serialization of credentials, and records only a redacted receipt. Do not replace the controller authentication vault with a fresh `GJC_CODING_AGENT_DIR`.
+Authentication is broker-first, but every broker or credential selector remains outside serialized argv, prompts, receipts, evidence, terminal metadata, and completion messages. The manifest stores only mode, authenticated-or-blocked status, a non-secret blocked reason, exact-environment hashes, sanitized argv, and redacted evidence metadata. If the broker is unavailable, `trusted-controller-vault` is the only fallback: it reuses only the trusted controller credential store while config/session remain isolated and forbids inspection, copying, export, and serialization. Do not replace the controller authentication vault with a fresh `GJC_CODING_AGENT_DIR`.
 
-Before creating a child terminal, the coordinator runs a non-mutating authenticated model probe with the exact reviewed child environment and invocation shape. Its receipt records only timestamp, mode, success, and redacted artifact; failure blocks terminal creation and dispatch.
+Before creating a child terminal, the coordinator runs a non-mutating authenticated model probe with the exact reviewed child environment and launch envelope. A successful receipt records timestamp, mode, environment and argv hashes, sanitized selector-free argv, and redacted evidence. A failed probe records the same non-secret metadata with `authenticated=false`, forces manifest status `blocked`, and requires an empty task list—therefore no terminal or dispatch can exist.
 
 ## Receipt contracts
 
 - [`templates/run-manifest.template.json`](templates/run-manifest.template.json) is a valid representative run document. Production manifests use real IDs, paths, and hashes and validate against its schema.
+- [`schemas/validate-run-manifest.mjs`](schemas/validate-run-manifest.mjs) enforces cross-record identity, uniqueness, runtime equality, timestamp/cursor ordering, fallback selection, prompt deadlines, and liveness windows after draft-2020 schema validation:
+
+  ```text
+  bun schemas/validate-run-manifest.mjs /private/<run>/manifest.json
+  ```
 - [`templates/worker-task.md`](templates/worker-task.md) specifies the immutable facts each worker receives before hashing and Orca injection.
 - [`templates/completion-receipt.template.json`](templates/completion-receipt.template.json) is the required worker evidence shape, validated by [`schemas/completion-receipt.schema.json`](schemas/completion-receipt.schema.json).
 
-A prompt-delivery record is valid only when it binds the literal prompt hash to `dispatch-show`, a pre-submit terminal read, zero Enter submissions when already active or exactly one when a pasted composer is visible, and a post-submit terminal read proving `active`. It must record `acceptedAt` and `waitStartedAfterAccepted=true`; any missing or unknown active-state proof blocks a long wait. A send/inject acknowledgment or heartbeat never suffices by itself.
+A prompt-delivery receipt is singular and identity-bound. It records the literal prompt hash, `dispatch-show`, a 60-second acceptance deadline, zero resends, and one ordered tuple: pre-submit read with cursor/timestamp/evidence; exactly one Enter only for a visible composer; and a later post-submit read with greater cursor/timestamp proving the exact terminal is `active`. An already-active prompt records pre/post active reads and zero Enters. `acceptedAt` must follow active evidence and dispatch creation and must not exceed the deadline. Wrong/stale identity, duplicate attempt, unchanged composer, or missing/nonmonotonic active evidence blocks the task and forbids a long wait.
 
-The manifest approval policy names the only automatic results—`recommended` and `approve`—and decision receipts prove each result was reversible, in scope, and plan-preserving. Everything destructive, irreversible, credential- or secret-related, external-production, parent-mutating, merging, pushing, deploying, or materially scope-changing escalates unless the exact action is pre-authorized.
+The manifest approval policy names the only automatic results—`recommended` and `approve`—and the task's singular decision receipt proves the choice was reversible, in scope, plan-preserving, and automatically recorded. Everything destructive, irreversible, credential- or secret-related, external-production, parent-mutating, merging, pushing, deploying, or materially scope-changing escalates through Orca unless the exact action is pre-authorized.
 
-A `worker_done` event is valid only once, sent to the concrete coordinator with live Orca `taskId` and `dispatchId`, and backed by non-empty evidence paths. Its exact `status` vocabulary is `success`, `failure`, or `blocked`; Orca task lifecycle states such as `completed` and `failed` remain separate. A text-only completion or stale dispatch ID is not a completion.
+A task lifecycle has one completion slot. A `worker_done` event is valid exactly once, sent to the concrete coordinator with the live Orca task and dispatch IDs, and backed by non-empty evidence. Its exact `status` vocabulary is `success`, `failure`, or `blocked`; Orca task states remain separate. The semantic validator rejects stale lifecycle IDs.
+
+A task lifecycle also has one cleanup slot. Only clean or zero-delta state with empty porcelain status may be removed. Dirty and unknown worktrees are preserved; deleted, detached, live, or unverifiable worktrees are cleanup-blocked. None can be serialized as removed.
 
 ## Safety boundaries
 
@@ -106,6 +114,6 @@ When a boundary fails, preserve the state and evidence, mark the run blocked or 
 
 ## Source facts and licensing
 
-This skill states GJC 0.11.1 CLI behavior observed from installed help: `--credential`, `--session-dir`, `--no-extensions`, `--no-skills`, `--no-rules`, `--no-session`, `--no-pty`, and `--tools` are supported controls; thinking values are `ultra`, `high`, `medium`, and `low`. The skill does not include GJC source code or credential content. Local binary, model, authentication-probe, and repository-trust verification remain mandatory.
+This skill states GJC 0.11.1 CLI behavior observed from installed help: `--session-dir`, `--no-extensions`, `--no-skills`, `--no-rules`, `--no-session`, `--no-pty`, and `--tools` are supported controls; thinking values are `ultra`, `high`, `medium`, and `low`. The skill does not include GJC source code, credential content, credential selectors, or broker selectors. Local binary, model, authentication-probe, and repository-trust verification remain mandatory.
 
 This repository payload is independently licensed under the MIT License in [`LICENSE`](LICENSE).
