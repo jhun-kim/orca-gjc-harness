@@ -23,11 +23,13 @@
     "validations",
     "evidence",
     "cleanupReceipts",
+    "approvalPolicy",
+    "decisionReceipts",
     "status"
   ],
   "additionalProperties": false,
   "properties": {
-    "schemaVersion": { "const": "1.0" },
+    "schemaVersion": { "const": "1.1" },
     "runId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
     "createdAt": { "type": "string", "format": "date-time" },
     "coordinatorHandle": { "type": "string", "minLength": 1 },
@@ -56,6 +58,8 @@
     "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
     "cleanupReceipts": { "type": "array", "items": { "$ref": "#/$defs/cleanupReceipt" } },
     "final": { "$ref": "#/$defs/finalReport" },
+    "approvalPolicy": { "$ref": "#/$defs/approvalPolicy" },
+    "decisionReceipts": { "type": "array", "items": { "$ref": "#/$defs/decisionReceipt" } },
     "status": { "enum": ["planning", "running", "blocked", "failed", "validated", "cleanup-blocked", "complete"] }
   },
   "$defs": {
@@ -98,6 +102,9 @@
         "tools",
         "goalEnabled",
         "environmentReceipt",
+        "configurationIsolationReceipt",
+        "sessionIsolationReceipt",
+        "authentication",
         "fallbacks"
       ],
       "additionalProperties": false,
@@ -117,14 +124,17 @@
         },
         "requestedModel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
         "resolvedModel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
-        "requestedThinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
-        "resolvedThinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
+        "requestedThinking": { "enum": ["ultra", "high", "medium", "low"] },
+        "resolvedThinking": { "enum": ["ultra", "high", "medium", "low"] },
         "tools": { "type": "array", "minItems": 1, "items": { "enum": ["read", "search", "find", "edit", "write", "bash"] }, "uniqueItems": true },
         "goalEnabled": {
           "const": false,
           "description": "The goal tool can remain active despite --tools and must be disabled in the isolated config."
         },
         "environmentReceipt": { "$ref": "#/$defs/path" },
+        "configurationIsolationReceipt": { "$ref": "#/$defs/path" },
+        "sessionIsolationReceipt": { "$ref": "#/$defs/path" },
+        "authentication": { "$ref": "#/$defs/authentication" },
         "fallbacks": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" }, "uniqueItems": true }
       }
     },
@@ -170,7 +180,7 @@
         "recordedBase": { "$ref": "#/$defs/fullOid" },
         "ownedPaths": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/path" }, "uniqueItems": true },
         "model": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._/-]+$" },
-        "thinking": { "enum": ["minimal", "low", "medium", "high", "xhigh", "max"] },
+        "thinking": { "enum": ["ultra", "high", "medium", "low"] },
         "promptPath": { "$ref": "#/$defs/path" },
         "promptSha256": { "$ref": "#/$defs/sha256" },
         "acceptance": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
@@ -289,6 +299,9 @@
         "enterSubmissionCount",
         "enterSubmissionArtifact",
         "postSubmitReadArtifact",
+        "observedActiveState",
+        "acceptedAt",
+        "waitStartedAfterAccepted",
         "accepted"
       ],
       "additionalProperties": false,
@@ -305,6 +318,15 @@
         "enterSubmissionCount": { "type": "integer", "minimum": 0, "maximum": 1 },
         "enterSubmissionArtifact": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] },
         "postSubmitReadArtifact": { "$ref": "#/$defs/evidence" },
+        "observedActiveState": {
+          "const": "active",
+          "description": "The post-submit terminal read must prove the dispatched task is active, not merely accepted by injection."
+        },
+        "acceptedAt": { "type": "string", "format": "date-time" },
+        "waitStartedAfterAccepted": {
+          "const": true,
+          "description": "No orchestration long wait may begin until active-state acceptance has been recorded."
+        },
         "acknowledgmentArtifact": { "anyOf": [{ "$ref": "#/$defs/evidence" }, { "type": "null" }] },
         "accepted": {
           "const": true,
@@ -337,6 +359,98 @@
           }
         }
       ]
+    },
+    "authenticationReceipt": {
+      "type": "object",
+      "required": ["path", "sha256", "bytes", "redacted"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "redacted": {
+          "const": true,
+          "description": "This receipt records mode and probe outcome, never credential values or raw environment content."
+        }
+      }
+    },
+    "authenticatedProbe": {
+      "type": "object",
+      "required": ["executedAt", "exactChildEnvironment", "authenticated", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "executedAt": { "type": "string", "format": "date-time" },
+        "exactChildEnvironment": {
+          "const": true,
+          "description": "The probe uses the same reviewed environment and invocation shape as the child terminal."
+        },
+        "authenticated": { "const": true },
+        "artifact": { "$ref": "#/$defs/authenticationReceipt" }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "required": ["mode", "redactedReceipt", "authenticatedProbe"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": ["broker", "trusted-controller-vault"],
+          "description": "Broker is preferred. The vault fallback shares only the trusted controller credential store."
+        },
+        "redactedReceipt": { "$ref": "#/$defs/authenticationReceipt" },
+        "authenticatedProbe": { "$ref": "#/$defs/authenticatedProbe" }
+      }
+    },
+    "approvalPolicy": {
+      "type": "object",
+      "required": ["autoResolve", "eligibleChoices", "mandatoryEscalations", "exactPreauthorizationRequired", "receipt"],
+      "additionalProperties": false,
+      "properties": {
+        "autoResolve": { "enum": ["recommended", "approve"] },
+        "eligibleChoices": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["recommended", "approve"] }
+        },
+        "mandatoryEscalations": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "destructive",
+              "irreversible",
+              "credential",
+              "secret",
+              "external-production",
+              "parent-mutation",
+              "merge",
+              "push",
+              "deploy",
+              "material-scope-change"
+            ]
+          }
+        },
+        "exactPreauthorizationRequired": { "const": true },
+        "receipt": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "decisionReceipt": {
+      "type": "object",
+      "required": ["taskId", "dispatchId", "choice", "source", "reversible", "inScope", "planPreserving", "automatic", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "taskId": { "type": "string", "minLength": 1 },
+        "dispatchId": { "type": "string", "minLength": 1 },
+        "choice": { "enum": ["recommended", "approve"] },
+        "source": { "const": "serialized-approval-policy" },
+        "reversible": { "const": true },
+        "inScope": { "const": true },
+        "planPreserving": { "const": true },
+        "automatic": { "const": true },
+        "artifact": { "$ref": "#/$defs/evidence" }
+      }
     },
     "handoff": {
       "type": "object",

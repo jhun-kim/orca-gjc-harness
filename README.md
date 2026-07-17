@@ -36,8 +36,8 @@ orca-gjc-harness/
 
 ## Version management
 
-The repository follows Semantic Versioning. The initial published version is
-[`1.0.0`](VERSION).
+The repository follows Semantic Versioning. The current compatibility-contract version is
+[`1.1.0`](VERSION).
 
 - Only non-automated pushes to `main` allocate release versions; feature-branch
   pushes do not allocate or change one.
@@ -49,42 +49,36 @@ The repository follows Semantic Versioning. The initial published version is
 - Each automated version commit receives an annotated `vX.Y.Z` tag.
 - The workflow does not create GitHub Releases.
 
-
 ## Operating model
 
-1. **Gate activation.** Confirm Orca, a trustworthy GJC binary, exact model availability, target trust classification, and a private run-evidence root. Otherwise leave this skill and use a separate direct workflow.
+1. **Gate activation.** Confirm Orca, a trustworthy GJC binary, exact model availability, target trust classification, a private run-evidence root, and an authenticated probe with the exact child environment. Failed or unavailable authentication blocks terminal creation and dispatch.
 2. **Freeze baseline.** Capture the parent worktree path, branch, full HEAD, and porcelain status. Parent mutation is outside this skill.
-3. **Create one manifest.** Serialize the run against [`schemas/run-manifest.schema.json`](schemas/run-manifest.schema.json), with task, worktree, terminal, prompt, handoff, validation, and cleanup evidence owned by that manifest.
+3. **Create one manifest.** Serialize the run against [`schemas/run-manifest.schema.json`](schemas/run-manifest.schema.json), including separated configuration/session/authentication receipts, a redacted authenticated-probe receipt, approval policy, and automatic decision receipts.
 4. **Choose a primary mode.** Use `single` for one narrow change, `race` for competing candidates, `parallel-build` for disjoint ownership, and `pipeline` for hash-verified staged work. Integration is conditional only.
-5. **Launch through Orca.** Orca creates the child worktree and terminal and injects a literal, hashed task spec. Acceptance requires `dispatch-show`, a terminal read before submission, exactly one Enter when a pasted composer is visible, and a terminal read afterward proving the prompt left the composer and became active. A send/inject acknowledgment alone is insufficient. GJC is not permitted to create worktrees or coordination state.
-6. **Accept evidence, not prose.** Heartbeats, decision gates, one `worker_done`, full object IDs, hashes, exit codes, and non-empty artifacts form the handoff contract.
-7. **Validate and preserve.** Run approved validation in the selected child, preserve its branch/commit, clean only verified run-owned children, then compare parent invariants byte-for-byte.
+5. **Launch through Orca.** Orca creates the child worktree and terminal and injects a literal, hashed task spec. Before any long `orca orchestration check --wait`, acceptance requires `dispatch-show`, a terminal read before submission, exactly one Enter only when a pasted composer is visible, and a post-submit terminal read proving `active`; record that state, `acceptedAt`, and `waitStartedAfterAccepted=true`. A send/inject acknowledgment alone is insufficient.
+6. **Resolve routine decisions.** The coordinator automatically records the `Recommended` or `Approve` result only for reversible, in-scope, plan-preserving coding choices. Destructive, irreversible, credential, secret, external-production, parent-mutation, merge, push, deploy, and material scope changes escalate unless exactly pre-authorized.
+7. **Accept evidence, not prose.** Heartbeats, decision gates, one `worker_done`, full object IDs, hashes, exit codes, and non-empty artifacts form the handoff contract.
+8. **Validate and preserve.** Run approved validation in the selected child, preserve its branch/commit, clean only verified run-owned children, then compare parent invariants byte-for-byte.
 
 ## GJC invocation safety
 
-The default requested worker route is `openai-codex/gpt-5.6-sol` with `xhigh` thinking. It must be present in `gjc --list-models` output from a trusted controller context. Per-task model or effort overrides are permitted only when serialized in the manifest, verified before launch, and accompanied by a risk rationale. The default fallback list is empty; a missing exact selector blocks execution.
+The default requested worker route is `openai-codex/gpt-5.6-sol` with `high` thinking. It must be present in `gjc --list-models` output from a trusted controller context. GJC 0.11.1 exposes `ultra`, `high`, `medium`, and `low` thinking values, and supports `--credential`, `--session-dir`, `--no-extensions`, `--no-skills`, `--no-session`, `--no-pty`, and `--tools`. Per-task model or effort overrides are permitted only when serialized in the manifest, verified before launch, and accompanied by a risk rationale. The default fallback list is empty; a missing exact selector blocks execution.
 
 Every launch uses an explicit model and thinking level plus these restrictive controls:
 
 ```text
-gjc --model openai-codex/gpt-5.6-sol --thinking xhigh --no-session --no-lsp --no-rules --no-pty --tools read,search,find
+gjc --model openai-codex/gpt-5.6-sol --thinking high --session-dir /private/<run>/runtime/session --no-session --no-extensions --no-skills --no-rules --no-pty --tools read,search,find
 ```
 
-The initial read-only allowlist is `read,search,find`. Because the `goal` tool can remain enabled despite that allowlist, the isolated run config also sets `goal.enabled=false`. An owned implementation task can add `edit,write`; `bash` requires a command-specific trust gate. `--no-lsp` remains enabled until project configuration and resolved LSP binaries are trusted.
-
-These controls have important limits:
-
-- `--no-extensions` and `--no-skills` are ineffective as containment measures because the analyzed GJC parser does not parse them; arbitrary skill discovery is already disabled in the analyzed source. State isolation and absent project registries are the controls.
-- `--tools` does not by itself disable the `goal` tool. Strict read-only workers require `goal.enabled=false` in the isolated run config.
-- `--no-pty` sets `PI_NO_PTY=1`, but does not alone stop a bash shell snapshot from reading startup state. The run environment also neutralizes login/profile inputs.
-- GJC project plugins, LSP configuration/binaries, MCP configuration, lifecycle scripts, Git hooks, and shell startup can execute or influence code. They require separate trust inventory and approval.
-- Do not pass `--api-key`, use persistent model presets/defaults, dump environment variables, or run GJC global/nested management commands.
+The initial read-only allowlist is `read,search,find`. Because the `goal` tool can remain enabled despite that allowlist, the isolated run config also sets `goal.enabled=false`. An owned implementation task can add `edit,write`; `bash` requires a command-specific trust gate. `--no-extensions`, `--no-skills`, and `--no-rules` are required but complement, rather than replace, state isolation and repository trust gates. Do not pass `--api-key`, use persistent model presets/defaults, dump environment variables, or run GJC global/nested management commands.
 
 ## Sanitized run environment
 
-Each worker receives fresh run-scoped `GJC_CODING_AGENT_DIR` and `GJC_CONFIG_DIR` paths outside the target repository and evidence tree. The directories contain only the reviewed minimal config needed to set `goal.enabled=false`. GJC runs with a minimal allowlist, no captured environment dump, `GJC_NO_PTY=1`, `GJC_BASH_NO_LOGIN=1`, `SHELL=/bin/sh`, `BASH_ENV=/dev/null`, `ENV=/dev/null`, `GIT_TERMINAL_PROMPT=0`, and `GIT_ASKPASS=/usr/bin/false`. The coordinator removes shell-prefix/legacy aliases and unrelated cloud, source-control, proxy, and provider credentials.
+Configuration, session, and authentication isolation are independent. Each worker receives a fresh run-scoped `GJC_CONFIG_DIR` and `--session-dir` outside the target repository and evidence tree; the directories contain only the reviewed minimal config needed to set `goal.enabled=false`. The coordinator removes shell-prefix/legacy aliases, applies a minimal allowlist, does not dump the raw environment, and sets `GJC_NO_PTY=1`, `GJC_BASH_NO_LOGIN=1`, `SHELL=/bin/sh`, `BASH_ENV=/dev/null`, `ENV=/dev/null`, `GIT_TERMINAL_PROMPT=0`, and `GIT_ASKPASS=/usr/bin/false`.
 
-A selected provider may be authenticated only through a brokered handle that is neither written to disk nor included in arguments, prompts, receipts, diffs, terminal titles, or logs. If the host cannot preserve that boundary, do not launch GJC.
+Authentication is broker-first: `--credential` may select an opaque non-secret broker handle, but that selector is never recorded. If the broker is unavailable, `trusted-controller-vault` is the only fallback: it reuses only the trusted controller credential store while config/session remain isolated, forbids inspection, copying, export, and serialization of credentials, and records only a redacted receipt. Do not replace the controller authentication vault with a fresh `GJC_CODING_AGENT_DIR`.
+
+Before creating a child terminal, the coordinator runs a non-mutating authenticated model probe with the exact reviewed child environment and invocation shape. Its receipt records only timestamp, mode, success, and redacted artifact; failure blocks terminal creation and dispatch.
 
 ## Receipt contracts
 
@@ -92,7 +86,9 @@ A selected provider may be authenticated only through a brokered handle that is 
 - [`templates/worker-task.md`](templates/worker-task.md) specifies the immutable facts each worker receives before hashing and Orca injection.
 - [`templates/completion-receipt.template.json`](templates/completion-receipt.template.json) is the required worker evidence shape, validated by [`schemas/completion-receipt.schema.json`](schemas/completion-receipt.schema.json).
 
-A prompt-delivery record is valid only when it binds the literal prompt hash to `dispatch-show`, a pre-submit terminal read, zero Enter submissions when no pasted composer is visible or exactly one when it is, and a post-submit terminal read proving acceptance. A send/inject acknowledgment or heartbeat never suffices by itself.
+A prompt-delivery record is valid only when it binds the literal prompt hash to `dispatch-show`, a pre-submit terminal read, zero Enter submissions when already active or exactly one when a pasted composer is visible, and a post-submit terminal read proving `active`. It must record `acceptedAt` and `waitStartedAfterAccepted=true`; any missing or unknown active-state proof blocks a long wait. A send/inject acknowledgment or heartbeat never suffices by itself.
+
+The manifest approval policy names the only automatic results—`recommended` and `approve`—and decision receipts prove each result was reversible, in scope, and plan-preserving. Everything destructive, irreversible, credential- or secret-related, external-production, parent-mutating, merging, pushing, deploying, or materially scope-changing escalates unless the exact action is pre-authorized.
 
 A `worker_done` event is valid only once, sent to the concrete coordinator with live Orca `taskId` and `dispatchId`, and backed by non-empty evidence paths. Its exact `status` vocabulary is `success`, `failure`, or `blocked`; Orca task lifecycle states such as `completed` and `failed` remain separate. A text-only completion or stale dispatch ID is not a completion.
 
@@ -110,6 +106,6 @@ When a boundary fails, preserve the state and evidence, mark the run blocked or 
 
 ## Source facts and licensing
 
-This skill independently states GJC CLI behavior observed in an immutable static source-analysis contract for Gajae Code commit `7dc297145f333a00b7e913ce7c8cd5dedeb3fd34`. It does not include GJC source code or copied implementation text. The contract establishes that `--model`, `--thinking`, `--no-session`, `--no-lsp`, `--no-rules`, `--no-pty`, and `--tools` are active parser controls; it also records that `--no-extensions` and `--no-skills` are not parsed and that `--tools` can leave the `goal` tool enabled. Static analysis is not a security guarantee, so local binary/model verification remains mandatory.
+This skill states GJC 0.11.1 CLI behavior observed from installed help: `--credential`, `--session-dir`, `--no-extensions`, `--no-skills`, `--no-rules`, `--no-session`, `--no-pty`, and `--tools` are supported controls; thinking values are `ultra`, `high`, `medium`, and `low`. The skill does not include GJC source code or credential content. Local binary, model, authentication-probe, and repository-trust verification remain mandatory.
 
 This repository payload is independently licensed under the MIT License in [`LICENSE`](LICENSE).

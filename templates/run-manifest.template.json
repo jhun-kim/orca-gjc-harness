@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "runId": "orchid-review-20260717",
   "createdAt": "2026-07-17T00:00:00Z",
   "coordinatorHandle": "term_orca_coordinator",
@@ -28,11 +28,33 @@
     },
     "requestedModel": "openai-codex/gpt-5.6-sol",
     "resolvedModel": "openai-codex/gpt-5.6-sol",
-    "requestedThinking": "xhigh",
-    "resolvedThinking": "xhigh",
+    "requestedThinking": "high",
+    "resolvedThinking": "high",
     "tools": ["read", "search", "find"],
     "goalEnabled": false,
     "environmentReceipt": "/private/orchid-review-20260717/receipts/environment-policy.json",
+    "configurationIsolationReceipt": "/private/orchid-review-20260717/receipts/configuration-isolation.json",
+    "sessionIsolationReceipt": "/private/orchid-review-20260717/receipts/session-isolation.json",
+    "authentication": {
+      "mode": "broker",
+      "redactedReceipt": {
+        "path": "/private/orchid-review-20260717/receipts/authentication.json",
+        "sha256": "abababababababababababababababababababababababababababababababab",
+        "bytes": 384,
+        "redacted": true
+      },
+      "authenticatedProbe": {
+        "executedAt": "2026-07-17T00:01:00Z",
+        "exactChildEnvironment": true,
+        "authenticated": true,
+        "artifact": {
+          "path": "/private/orchid-review-20260717/receipts/authenticated-probe.json",
+          "sha256": "bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+          "bytes": 384,
+          "redacted": true
+        }
+      }
+    },
     "fallbacks": []
   },
   "source": {
@@ -56,7 +78,7 @@
       "recordedBase": "1111111111111111111111111111111111111111",
       "ownedPaths": ["src/owned-slice/**"],
       "model": "openai-codex/gpt-5.6-sol",
-      "thinking": "xhigh",
+      "thinking": "high",
       "promptPath": "/private/orchid-review-20260717/tasks/implementation.md",
       "promptSha256": "5555555555555555555555555555555555555555555555555555555555555555",
       "acceptance": ["Owned behavior passes its approved validation."],
@@ -98,12 +120,17 @@
       "title": "orchid-review-implementation",
       "command": [
         "gjc",
+        "--credential",
+        "brokered-provider-session",
         "--model",
         "openai-codex/gpt-5.6-sol",
         "--thinking",
-        "xhigh",
+        "high",
+        "--session-dir",
+        "/private/orchid-review-20260717/runtime/session",
         "--no-session",
-        "--no-lsp",
+        "--no-extensions",
+        "--no-skills",
         "--no-rules",
         "--no-pty",
         "--tools",
@@ -143,6 +170,9 @@
         "bytes": 512
       },
       "acknowledgmentArtifact": null,
+      "observedActiveState": "active",
+      "acceptedAt": "2026-07-17T00:05:02Z",
+      "waitStartedAfterAccepted": true,
       "accepted": true
     }
   ],
@@ -150,5 +180,44 @@
   "validations": [],
   "evidence": [],
   "cleanupReceipts": [],
+  "approvalPolicy": {
+    "autoResolve": "recommended",
+    "eligibleChoices": ["recommended", "approve"],
+    "mandatoryEscalations": [
+      "destructive",
+      "irreversible",
+      "credential",
+      "secret",
+      "external-production",
+      "parent-mutation",
+      "merge",
+      "push",
+      "deploy",
+      "material-scope-change"
+    ],
+    "exactPreauthorizationRequired": true,
+    "receipt": {
+      "path": "/private/orchid-review-20260717/receipts/approval-policy.json",
+      "sha256": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "bytes": 512
+    }
+  },
+  "decisionReceipts": [
+    {
+      "taskId": "task_implementation_02",
+      "dispatchId": "dispatch_implementation_02",
+      "choice": "recommended",
+      "source": "serialized-approval-policy",
+      "reversible": true,
+      "inScope": true,
+      "planPreserving": true,
+      "automatic": true,
+      "artifact": {
+        "path": "/private/orchid-review-20260717/receipts/decision-recommended.json",
+        "sha256": "dededededededededededededededededededededededededededededededede",
+        "bytes": 256
+      }
+    }
+  ],
   "status": "running"
 }
